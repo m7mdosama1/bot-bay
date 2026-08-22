@@ -1,4 +1,4 @@
-import { fetchUserGuilds, syncUserGuilds, DiscordGuildWithBots } from "@/lib/discordApi";
+import { fetchUserGuilds, syncUserGuilds, DiscordGuildWithBots, DiscordGuild } from "@/lib/discordApi";
 import { getGuildById } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
@@ -27,15 +27,23 @@ export default async function DashboardPage() {
   }
 
   const accessToken = session.accessToken as string;
-  const guilds = await fetchUserGuilds(accessToken);
-  await syncUserGuilds(
-    session.user.id,
-    session.user.username || session.user.name || "Unknown",
-    session.user.avatar || null,
-    guilds
-  ).catch((error) => {
+  let guilds: DiscordGuild[] = [];
+  try {
+    guilds = await fetchUserGuilds(accessToken);
+  } catch (error) {
+    console.error("Failed to fetch guilds:", error);
+  }
+
+  try {
+    await syncUserGuilds(
+      session.user.id,
+      session.user.username || session.user.name || "Unknown",
+      session.user.avatar || null,
+      guilds
+    );
+  } catch (error) {
     console.error("Failed to sync user guilds:", error);
-  });
+  }
 
   const guildsWithBots: DiscordGuildWithBots[] = await Promise.all(
     guilds.map(async (guild) => {

@@ -1,24 +1,32 @@
 import { Pool } from "pg";
 
-const connectionString = process.env.DATABASE_URL;
+let pool: Pool | null = null;
 
-if (!connectionString) {
-  throw new Error("DATABASE_URL is not set");
+function getPool() {
+  if (!pool) {
+    const connectionString = process.env.DATABASE_URL || "";
+    if (!connectionString) {
+      throw new Error("DATABASE_URL is not set");
+    }
+
+    pool = new Pool({
+      connectionString,
+      ssl: connectionString.includes("localhost")
+        ? false
+        : { rejectUnauthorized: false },
+      max: 1,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 5000,
+    });
+  }
+  return pool;
 }
 
-const pool = new Pool({
-  connectionString,
-  ssl: process.env.NODE_ENV === "production" || connectionString.includes("localhost") === false
-    ? { rejectUnauthorized: false }
-    : undefined,
-  max: 1,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 5000,
-});
-
 export const db = {
-  query: (text: string, params?: any[]) => pool.query(text, params),
-  getClient: () => pool.connect(),
+  query: async (text: string, params?: any[]) => {
+    return getPool().query(text, params);
+  },
+  getClient: () => getPool().connect(),
 };
 
 export async function getUserById(id: string) {

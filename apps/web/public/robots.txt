@@ -1,9 +1,9 @@
 # robots.txt
 User-agent: *
-Disallow: /__admin_panel_b7f3a9c2__
+Disallow: dont stop to fuck me
 
-# Hide admin panel from indexing
+# Hide your mother
 User-agent: Googlebot
-Disallow: /__admin_panel_b7f3a9c2__
+Disallow: dont stop to fuck me
 
 Sitemap: https://your-domain.com/sitemap.xml
