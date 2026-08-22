@@ -17,7 +17,8 @@ from shared_models import Base, Ticket
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///../../bot-bay.db")
-engine = create_async_engine(DATABASE_URL, echo=False)
+connect_args = {"ssl": "require"} if DATABASE_URL.startswith("postgresql") else {}
+engine = create_async_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 intents = discord.Intents.default()
