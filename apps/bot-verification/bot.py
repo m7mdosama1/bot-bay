@@ -14,6 +14,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "packages
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import insert
+
+import uuid
 
 from shared_models import Base, VerificationConfig, VerificationAttempt
 
@@ -210,16 +213,16 @@ async def verify_setup(
     verified_role: discord.Role,
 ):
     async with AsyncSessionLocal() as session:
-        await session.execute(
-            VerificationConfig.__table__.insert().values(
-                guild_id=str(interaction.guild_id),
-                verify_channel_id=str(channel.id),
-                unverified_role_id=str(unverified_role.id),
-                verified_role_id=str(verified_role.id),
-                vpn_check_enabled=True,
-                alt_check_enabled=True,
-            ).prefix_with("INSERT OR REPLACE")
+        insert_stmt = insert(VerificationConfig).values(
+            id=str(uuid.uuid4().hex[:25]),
+            guild_id=str(interaction.guild_id),
+            verify_channel_id=str(channel.id),
+            unverified_role_id=str(unverified_role.id),
+            verified_role_id=str(verified_role.id),
+            vpn_check_enabled=True,
+            alt_check_enabled=True,
         )
+        await session.execute(insert_stmt)
         await session.commit()
 
     embed = discord.Embed(

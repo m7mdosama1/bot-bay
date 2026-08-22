@@ -103,7 +103,7 @@ class RoulettePanelView(discord.ui.View):
 
     @discord.ui.select(
         placeholder="Select your bets...",
-        max_values=10,
+        max_values=8,
         options=[
             discord.SelectOption(label="Red", value="red", emoji="🔴"),
             discord.SelectOption(label="Black", value="black", emoji="⚫"),

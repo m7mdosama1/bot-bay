@@ -49,8 +49,8 @@ class Guild(Base):
 class GuildBot(Base):
     __tablename__ = "guild_bots"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_id)
-    guild_id: Mapped[str] = mapped_column(String, ForeignKey("guilds.id"))
-    bot_id: Mapped[str] = mapped_column(String, ForeignKey("bots.id"))
+    guild_id: Mapped[str] = mapped_column(String)
+    bot_id: Mapped[str] = mapped_column(String)
     added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -58,7 +58,7 @@ class GuildBot(Base):
 class Giveaway(Base):
     __tablename__ = "giveaways"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_id)
-    guild_id: Mapped[str] = mapped_column(String, ForeignKey("guilds.id"))
+    guild_id: Mapped[str] = mapped_column(String)
     channel_id: Mapped[str] = mapped_column(String)
     message_id: Mapped[str] = mapped_column(String, nullable=True)
     prize: Mapped[str] = mapped_column(String)
@@ -82,7 +82,7 @@ class RouletteConfig(Base):
 class ModerationLog(Base):
     __tablename__ = "moderation_logs"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_id)
-    guild_id: Mapped[str] = mapped_column(String, ForeignKey("guilds.id"))
+    guild_id: Mapped[str] = mapped_column(String)
     action: Mapped[str] = mapped_column(String)
     target_user_id: Mapped[str] = mapped_column(String)
     moderator_id: Mapped[str] = mapped_column(String)
@@ -104,7 +104,7 @@ class VerificationConfig(Base):
 class VerificationAttempt(Base):
     __tablename__ = "verification_attempts"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_id)
-    guild_id: Mapped[str] = mapped_column(String, ForeignKey("guilds.id"))
+    guild_id: Mapped[str] = mapped_column(String)
     user_id: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String)
     ip_hash: Mapped[str] = mapped_column(String, nullable=True)
@@ -125,7 +125,7 @@ class WelcomeConfig(Base):
 class Ticket(Base):
     __tablename__ = "tickets"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_id)
-    guild_id: Mapped[str] = mapped_column(String, ForeignKey("guilds.id"))
+    guild_id: Mapped[str] = mapped_column(String)
     number: Mapped[int] = mapped_column(Integer)
     channel_id: Mapped[str] = mapped_column(String)
     type: Mapped[str] = mapped_column(String, nullable=True)
