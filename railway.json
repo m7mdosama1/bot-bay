@@ -1,0 +1,65 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "services": {
+    "bot-verification": {
+      "source": "apps/bot-verification",
+      "deploy": {
+        "startCommand": "python bot.py",
+        "restartPolicy": {
+          "type": "on-failure",
+          "maxRestarts": 5
+        }
+      }
+    },
+    "bot-giveaway": {
+      "source": "apps/bot-giveaway",
+      "deploy": {
+        "startCommand": "python bot.py",
+        "restartPolicy": {
+          "type": "on-failure",
+          "maxRestarts": 5
+        }
+      }
+    },
+    "bot-roulette": {
+      "source": "apps/bot-roulette",
+      "deploy": {
+        "startCommand": "python bot.py",
+        "restartPolicy": {
+          "type": "on-failure",
+          "maxRestarts": 5
+        }
+      }
+    },
+    "bot-admin": {
+      "source": "apps/bot-admin",
+      "deploy": {
+        "startCommand": "python bot.py",
+        "restartPolicy": {
+          "type": "on-failure",
+          "maxRestarts": 5
+        }
+      }
+    },
+    "bot-ticket": {
+      "source": "apps/bot-ticket",
+      "deploy": {
+        "startCommand": "python bot.py",
+        "restartPolicy": {
+          "type": "on-failure",
+          "maxRestarts": 5
+        }
+      }
+    },
+    "bot-welcome": {
+      "source": "apps/bot-welcome",
+      "deploy": {
+        "startCommand": "python bot.py",
+        "restartPolicy": {
+          "type": "on-failure",
+          "maxRestarts": 5
+        }
+      }
+    }
+  }
+}

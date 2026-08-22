@@ -1,0 +1,168 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  username  String
+  avatar    String?
+  isAdmin   Boolean  @default(false) @map("is_admin")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model Bot {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name          String
+  tagline       String
+  description   String
+  features      String
+  clientId      String     @map("client_id")
+  permissions   String
+  iconUrl       String?    @map("icon_url")
+  colorAccent   String     @default("#F2A93B") @map("color_accent")
+  isActive      Boolean    @default(true) @map("is_active")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  guildBots     GuildBot[]
+
+  @@map("bots")
+}
+
+model Guild {
+  id                    String                   @id
+  name                  String
+  iconUrl               String?                  @map("icon_url")
+  ownerId               String                   @map("owner_id")
+  guildBots             GuildBot[]
+  giveaways             Giveaway[]
+  rouletteConfig        RouletteConfig?
+  moderationLogs        ModerationLog[]
+  verificationConfig    VerificationConfig?
+  verificationAttempts  VerificationAttempt[]
+  welcomeConfig         WelcomeConfig?
+  tickets               Ticket[]
+
+  @@map("guilds")
+}
+
+model GuildBot {
+  id        String   @id @default(cuid())
+  guildId   String   @map("guild_id")
+  botId     String   @map("bot_id")
+  addedAt   DateTime @default(now()) @map("added_at")
+  isActive  Boolean  @default(true) @map("is_active")
+  guild     Guild    @relation(fields: [guildId], references: [id])
+  bot       Bot      @relation(fields: [botId], references: [id])
+
+  @@unique([guildId, botId])
+  @@map("guild_bots")
+}
+
+model Giveaway {
+  id           String   @id @default(cuid())
+  guildId      String   @map("guild_id")
+  channelId    String   @map("channel_id")
+  messageId    String?  @map("message_id")
+  prize        String
+  winnersCount Int      @default(1) @map("winners_count")
+  endsAt       DateTime @map("ends_at")
+  status       String   @default("active")
+  createdBy    String   @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  guild        Guild    @relation(fields: [guildId], references: [id])
+
+  @@map("giveaways")
+}
+
+model RouletteConfig {
+  id           String  @id @default(cuid())
+  guildId      String  @unique @map("guild_id")
+  minBet       Int     @default(10) @map("min_bet")
+  maxBet       Int     @default(1000) @map("max_bet")
+  currencyName String  @default("عملة") @map("currency_name")
+  enabled      Boolean @default(true)
+  guild        Guild   @relation(fields: [guildId], references: [id])
+
+  @@map("roulette_configs")
+}
+
+model ModerationLog {
+  id            String   @id @default(cuid())
+  guildId       String   @map("guild_id")
+  action        String
+  targetUserId  String   @map("target_user_id")
+  moderatorId   String   @map("moderator_id")
+  reason        String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  guild         Guild    @relation(fields: [guildId], references: [id])
+
+  @@map("moderation_logs")
+}
+
+model VerificationConfig {
+  id               String  @id @default(cuid())
+  guildId          String  @unique @map("guild_id")
+  verifyChannelId  String  @map("verify_channel_id")
+  unverifiedRoleId String  @map("unverified_role_id")
+  verifiedRoleId   String  @map("verified_role_id")
+  vpnCheckEnabled  Boolean @default(true) @map("vpn_check_enabled")
+  altCheckEnabled  Boolean @default(true) @map("alt_check_enabled")
+  guild            Guild   @relation(fields: [guildId], references: [id])
+
+  @@map("verification_configs")
+}
+
+model VerificationAttempt {
+  id               String   @id @default(cuid())
+  guildId          String   @map("guild_id")
+  userId           String   @map("user_id")
+  status           String
+  ipHash           String?  @map("ip_hash")
+  fingerprintHash  String?  @map("fingerprint_hash")
+  createdAt        DateTime @default(now()) @map("created_at")
+  guild          Guild    @relation(fields: [guildId], references: [id])
+
+  @@map("verification_attempts")
+}
+
+model WelcomeConfig {
+  id              String  @id @default(cuid())
+  guildId         String  @unique @map("guild_id")
+  categoryId      String  @map("category_id")
+  messageText     String  @map("message_text")
+  imageUrl        String? @map("image_url")
+  deleteAfterMin  Int     @default(5) @map("delete_after_min")
+  guild           Guild   @relation(fields: [guildId], references: [id])
+
+  @@map("welcome_configs")
+}
+
+model Ticket {
+  id                String    @id @default(cuid())
+  guildId           String    @map("guild_id")
+  number            Int
+  channelId         String    @map("channel_id")
+  type              String?
+  openedBy          String    @map("opened_by")
+  claimedBy         String?   @map("claimed_by")
+  closedBy          String?   @map("closed_by")
+  status            String    @default("open")
+  transcriptContent String?   @map("transcript_content")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  claimedAt         DateTime? @map("claimed_at")
+  closedAt          DateTime? @map("closed_at")
+  guild             Guild     @relation(fields: [guildId], references: [id])
+
+  @@map("tickets")
+}

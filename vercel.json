@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/v1.json",
+  "version": 2,
+  "rootDirectory": "apps/web",
+  "build": {
+    "env": {
+      "NEXTAUTH_URL": "https://bot-bay-web.vercel.app"
+    }
+  },
+  "env": {
+    "NEXTAUTH_URL": "https://bot-bay-web.vercel.app"
+  },
+  "github": {
+    "silent": true
+  }
+}

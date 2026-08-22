@@ -1,0 +1,9 @@
+# robots.txt
+User-agent: *
+Disallow: /__admin_panel_b7f3a9c2__
+
+# Hide admin panel from indexing
+User-agent: Googlebot
+Disallow: /__admin_panel_b7f3a9c2__
+
+Sitemap: https://your-domain.com/sitemap.xml
