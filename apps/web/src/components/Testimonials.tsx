@@ -56,11 +56,11 @@ const testimonials: Testimonial[] = [
 ];
 
 export function Testimonials() {
-  const [current, setCurrent] = useState(0);
+  const [current, setCurrent] = useState<number>(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const next = () => setCurrent((prev) => (prev + 1) % testimonials.length);
-  const prev = () => setCurrent((prev - 1 + testimonials.length) % testimonials.length);
+  const next = () => setCurrent((prev: number) => (prev + 1) % testimonials.length);
+  const prev = () => setCurrent((prev: number) => (prev - 1 + testimonials.length) % testimonials.length);
 
   useEffect(() => {
     timeoutRef.current = setTimeout(next, 6000);
