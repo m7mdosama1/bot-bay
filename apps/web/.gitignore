@@ -36,8 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# generated prisma client (kept) but ignore engine binaries
+/src/generated/prisma/*.node
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-/src/generated/prisma
