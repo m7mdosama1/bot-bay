@@ -7,7 +7,7 @@
         "dockerfilePath": "Dockerfile"
       },
       "deploy": {
-        "startCommand": "python run-all-bots.py",
+        "startCommand": "python apps/bot-runner/run-all-bots.py",
         "restartPolicy": {
           "type": "on-failure",
           "maxRestarts": 5
