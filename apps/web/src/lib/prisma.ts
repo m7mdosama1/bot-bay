@@ -4,20 +4,35 @@ let pool: Pool | null = null;
 
 function getPool() {
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL || "";
+    let connectionString = process.env.DATABASE_URL || "";
     if (!connectionString) {
       throw new Error("DATABASE_URL is not set");
     }
 
-    pool = new Pool({
+    // Remove sslmode and channel_binding from URL since pg handles SSL via its own config
+    try {
+      const url = new URL(connectionString);
+      url.searchParams.delete("sslmode");
+      url.searchParams.delete("channel_binding");
+      connectionString = url.toString();
+    } catch {
+      // If URL parsing fails, use the original string
+    }
+
+    let ssl: any = undefined;
+    if (!connectionString.includes("localhost")) {
+      ssl = { rejectUnauthorized: false };
+    }
+
+    const client = new Pool({
       connectionString,
-      ssl: connectionString.includes("localhost")
-        ? false
-        : { rejectUnauthorized: false },
+      ssl,
       max: 1,
       idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 5000,
     });
+
+    pool = client;
   }
   return pool;
 }
