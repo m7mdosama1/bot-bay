@@ -107,13 +107,13 @@ async def on_member_join(member: discord.Member):
         result = await session.execute(
             select(WelcomeConfig).where(WelcomeConfig.guild_id == str(member.guild.id))
         )
-        row = result.fetchone()
+        config = result.scalar_one_or_none()
 
-        if not row:
+        if not config:
             return
 
-        config = dict(row._mapping)
-        category = member.guild.get_channel(int(config["category_id"]))
+        category_id = config.category_id
+        category = member.guild.get_channel(int(category_id))
         if not category or not isinstance(category, discord.CategoryChannel):
             return
 
