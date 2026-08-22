@@ -3,8 +3,8 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install dependencies first (for caching)
-COPY apps/bot-runner/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY apps/bot-runner/requirements.txt ./apps/bot-runner/requirements.txt
+RUN pip install --no-cache-dir -r apps/bot-runner/requirements.txt
 
 # Copy shared db package
 COPY packages/db/ ./packages/db/
@@ -17,8 +17,8 @@ COPY apps/bot-admin/ ./apps/bot-admin/
 COPY apps/bot-ticket/ ./apps/bot-ticket/
 COPY apps/bot-welcome/ ./apps/bot-welcome/
 
-# Copy the runner script
-COPY apps/bot-runner/run-all-bots.py ./run-all-bots.py
+# Copy the runner script to the same relative path as in the repo
+COPY apps/bot-runner/run-all-bots.py ./apps/bot-runner/run-all-bots.py
 
 # Set Python path to find shared models
 ENV PYTHONPATH=/app/packages/db
@@ -27,4 +27,4 @@ ENV PYTHONPATH=/app/packages/db
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD python -c "import sys; sys.exit(0)"
 
-CMD ["python", "run-all-bots.py"]
+CMD ["python", "apps/bot-runner/run-all-bots.py"]
