@@ -72,8 +72,9 @@ def load_bot_env(bot):
     token = env.get(bot["token_env"], "")
     env["DISCORD_TOKEN"] = token
 
-    # Shared env vars
-    env.setdefault("DATABASE_URL", os.getenv("DATABASE_URL", "sqlite+aiosqlite:///bot-bay.db"))
+    # Shared env vars — always ensure DATABASE_URL is a valid string
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    env["DATABASE_URL"] = database_url if database_url else "sqlite+aiosqlite:///bot-bay.db"
 
     # Bot-specific extra vars
     if bot["dir"] == "apps/bot-verification":
@@ -147,10 +148,11 @@ def main():
 
     # Verify at least one token is set
     has_any_token = any(
-        os.getenv(bot["token_env"]) for bot in BOTS
+        os.getenv(bot["token_env"], "").strip() and not os.getenv(bot["token_env"], "").strip().startswith("your_")
+        for bot in BOTS
     )
     if not has_any_token:
-        print("\n❌ No Discord tokens found in environment!")
+        print("\n[FAIL] No Discord tokens found in environment!")
         print("   Set the following env vars in your Railway project:")
         for bot in BOTS:
             print(f"     {bot['token_env']}=your_bot_token_here")
@@ -160,13 +162,24 @@ def main():
     # Start each bot in its own thread
     threads = []
     for bot in BOTS:
+        token = os.getenv(bot["token_env"], "").strip()
+        if not token or token.startswith("your_"):
+            print(f"  [SKIP] {bot['name']} — set {bot['token_env']} env var to enable", flush=True)
+            continue
         t = threading.Thread(target=run_bot, args=(bot,), daemon=False)
         t.start()
         threads.append(t)
-        log(bot["name"], f"🚀 Launched. Token source: {bot['token_env']}")
+        log(bot["name"], f"Launched. Token source: {bot['token_env']}")
         time.sleep(2)
 
-    print("\n✅ All 6 bots are starting. Waiting for processes...\n", flush=True)
+    if not threads:
+        print("\n[FAIL] No bot tokens are set! Exiting.")
+        print("   Set these env vars in your Railway project:")
+        for bot in BOTS:
+            print(f"     {bot['token_env']}=your_discord_bot_token")
+        sys.exit(1)
+
+    print(f"\n[OK] {len(threads)} bot(s) starting. Waiting for processes...\n", flush=True)
 
     # Handle shutdown signals
     def signal_handler(signum, frame):

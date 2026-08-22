@@ -287,7 +287,7 @@ async def build_transcript(channel: discord.TextChannel, ticket_number: int, clo
     async for msg in channel.history(limit=None, oldest_first=True):
         author = msg.author.display_name if msg.author else "Unknown"
         timestamp = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
-        content = msg.content if msg.content else (f"[{msg.attachments[0].filename if msg.attachments else "embed"}]")
+        content = msg.content if msg.content else (f"[{msg.attachments[0].filename if msg.attachments else 'embed'}]")
         lines.append(f"[{timestamp}] {author}: {content}")
         lines.append("")
 
