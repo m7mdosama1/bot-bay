@@ -1,7 +1,12 @@
 import "dotenv/config";
-import { PrismaClient } from "../src/generated/prisma/client";
+import { Pool } from "pg";
 
-const prisma = new PrismaClient();
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" || (process.env.DATABASE_URL || "").includes("localhost") === false
+    ? { rejectUnauthorized: false }
+    : undefined,
+});
 
 async function main() {
   const bots = [
@@ -113,21 +118,32 @@ async function main() {
   ];
 
   for (const bot of bots) {
-    await prisma.bot.upsert({
-      where: { slug: bot.slug },
-      update: bot,
-      create: bot,
-    });
+    await pool.query(
+      `INSERT INTO bots (id, slug, name, tagline, description, features, client_id, permissions, icon_url, color_accent, is_active, created_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW())
+       ON CONFLICT (slug) DO UPDATE SET
+         name = $2, tagline = $3, description = $4, features = $5, client_id = $6, permissions = $7, icon_url = $8, color_accent = $9`,
+      [
+        bot.slug,
+        bot.name,
+        bot.tagline,
+        bot.description,
+        bot.features,
+        bot.clientId,
+        bot.permissions,
+        bot.iconUrl,
+        bot.colorAccent,
+      ]
+    );
   }
 
   console.log("Seeded bots:", bots.length);
+
+  await pool.end();
 }
 
 main()
   .catch((e) => {
     console.error(e);
     process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
   });
