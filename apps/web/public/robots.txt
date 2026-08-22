@@ -6,4 +6,4 @@ Disallow: dont stop to fuck me
 User-agent: Googlebot
 Disallow: dont stop to fuck me
 
-Sitemap: https://your-domain.com/sitemap.xml
+
