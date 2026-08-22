@@ -177,8 +177,8 @@ async def warnings(interaction: discord.Interaction, target: discord.Member):
         from sqlalchemy import select
         result = await session.execute(
             select(ModerationLog).where(
-                ModerationLog.c.guild_id == str(interaction.guild_id),
-                ModerationLog.c.target_user_id == str(target.id),
+                ModerationLog.guild_id == str(interaction.guild_id),
+                ModerationLog.target_user_id == str(target.id),
             )
         )
         logs = result.fetchall()
@@ -207,8 +207,8 @@ async def modlog(interaction: discord.Interaction, limit: int = 10):
         from sqlalchemy import select
         result = await session.execute(
             select(ModerationLog)
-            .where(ModerationLog.c.guild_id == str(interaction.guild_id))
-            .order_by(ModerationLog.c.created_at.desc())
+            .where(ModerationLog.guild_id == str(interaction.guild_id))
+            .order_by(ModerationLog.created_at.desc())
             .limit(limit)
         )
         logs = result.fetchall()

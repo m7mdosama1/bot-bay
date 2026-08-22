@@ -80,6 +80,14 @@ def load_bot_env(bot):
             database_url = "postgresql+asyncpg://" + database_url[len("postgres://"):]
         elif database_url.startswith("postgresql://"):
             database_url = "postgresql+asyncpg://" + database_url[len("postgresql://"):]
+        # Strip sslmode query param (asyncpg doesn't support it, uses ssl= query instead)
+        if "?" in database_url:
+            base, query = database_url.split("?", 1)
+            params = [p for p in query.split("&") if not p.startswith("sslmode") and p.strip()]
+            if params:
+                database_url = base + "?" + "&".join(params)
+            else:
+                database_url = base
     env["DATABASE_URL"] = database_url if database_url else "sqlite+aiosqlite:///bot-bay.db"
 
     # Bot-specific extra vars

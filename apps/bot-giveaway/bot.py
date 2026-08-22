@@ -115,7 +115,7 @@ async def giveaway_create(
     async with AsyncSessionLocal() as session:
         await session.execute(
             update(Giveaway)
-            .where(Giveaway.c.id == str(giveaway_id))
+            .where(Giveaway.id == str(giveaway_id))
             .values(message_id=str(message.id))
         )
         await session.commit()
@@ -127,8 +127,8 @@ async def giveaway_end(interaction: discord.Interaction, message_id: str):
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(Giveaway).where(
-                Giveaway.c.channel_id == str(interaction.channel_id),
-                Giveaway.c.message_id == message_id,
+                Giveaway.channel_id == str(interaction.channel_id),
+                Giveaway.message_id == message_id,
             )
         )
         giveaway = result.fetchone()
@@ -151,7 +151,7 @@ async def giveaway_end(interaction: discord.Interaction, message_id: str):
 async def draw_winners(giveaway_id):
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            select(Giveaway).where(Giveaway.c.id == str(giveaway_id))
+            select(Giveaway).where(Giveaway.id == str(giveaway_id))
         )
         giveaway = result.fetchone()
 
@@ -167,7 +167,7 @@ async def draw_winners(giveaway_id):
         except discord.NotFound:
             await session.execute(
                 update(Giveaway)
-                .where(Giveaway.c.id == str(giveaway_id))
+                .where(Giveaway.id == str(giveaway_id))
                 .values(status="cancelled")
             )
             await session.commit()
@@ -199,7 +199,7 @@ async def draw_winners(giveaway_id):
 
         await session.execute(
             update(Giveaway)
-            .where(Giveaway.c.id == str(giveaway_id))
+            .where(Giveaway.id == str(giveaway_id))
             .values(status="completed")
         )
         await session.commit()
@@ -211,8 +211,8 @@ async def check_giveaways():
         now = datetime.utcnow()
         result = await session.execute(
             select(Giveaway).where(
-                Giveaway.c.status == "active",
-                Giveaway.c.ends_at <= now,
+                Giveaway.status == "active",
+                Giveaway.ends_at <= now,
             )
         )
         ended = result.fetchall()
@@ -220,7 +220,7 @@ async def check_giveaways():
         for g in ended:
             await session.execute(
                 update(Giveaway)
-                .where(Giveaway.c.id == str(g.id))
+                .where(Giveaway.id == str(g.id))
                 .values(status="ended")
             )
             await session.commit()

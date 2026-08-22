@@ -104,7 +104,7 @@ class AgreeView(discord.ui.View):
 async def on_member_join(member: discord.Member):
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            select(WelcomeConfig).where(WelcomeConfig.c.guild_id == str(member.guild.id))
+            select(WelcomeConfig).where(WelcomeConfig.guild_id == str(member.guild.id))
         )
         row = result.fetchone()
 
