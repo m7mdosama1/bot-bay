@@ -1,5 +1,18 @@
-import { NextResponse } from "next/server";
-import { db } from "@/lib/prisma";
+require("dotenv/config");
+const { Pool } = require("pg");
+
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error("DATABASE_URL is not set");
+  process.exit(0);
+}
+
+const pool = new Pool({
+  connectionString,
+  ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false },
+  max: 1,
+});
 
 const bots = [
   {
@@ -13,7 +26,7 @@ const bots = [
       "Alt account detection via account age",
       "Device fingerprint matching",
       "Role assignment on success",
-      "IP hashing with 30-day auto-cleanup",
+      "IP hashing with 30-day auto-cleanup"
     ]),
     clientId: process.env.BOT_VERIFICATION_CLIENT_ID || "123456789012345678",
     permissions: "268468292673",
@@ -30,7 +43,7 @@ const bots = [
       "Real-time countdown embed",
       "Anti-spam entry protection",
       "Automatic winner selection",
-      "30-second poll interval",
+      "30-second poll interval"
     ]),
     clientId: process.env.BOT_GIVEAWAY_CLIENT_ID || "123456789012345680",
     permissions: "8",
@@ -48,7 +61,7 @@ const bots = [
       "Modal-based bet amount entry",
       "Configurable min/max bets and currency",
       "Daily bonus system",
-      "Detailed history tracking",
+      "Detailed history tracking"
     ]),
     clientId: process.env.BOT_ROULETTE_CLIENT_ID || "123456789012345682",
     permissions: "8",
@@ -65,7 +78,7 @@ const bots = [
       "Confirm/Cancel confirmation flow",
       "Ephemeral confirmation messages",
       "Moderation log database persistence",
-      "Optional auto-moderation",
+      "Optional auto-moderation"
     ]),
     clientId: process.env.BOT_ADMIN_CLIENT_ID || "123456789012345684",
     permissions: "8",
@@ -82,7 +95,7 @@ const bots = [
       "Customizable welcome message",
       "Rule agreement button",
       "Auto role assignment",
-      "Channel cleanup after timeout",
+      "Channel cleanup after timeout"
     ]),
     clientId: process.env.BOT_WELCOME_CLIENT_ID || "123456789012345686",
     permissions: "8",
@@ -100,7 +113,7 @@ const bots = [
       "Permanent transcript storage in database",
       "Log channel file export",
       "Channel deletion after close",
-      "Dashboard ticket archive",
+      "Dashboard ticket archive"
     ]),
     clientId: process.env.BOT_TICKET_CLIENT_ID || "123456789012345688",
     permissions: "8",
@@ -109,36 +122,42 @@ const bots = [
   },
 ];
 
-export async function GET() {
+async function seed() {
   try {
-    const result = await db.query("SELECT COUNT(*) FROM bots");
+    const result = await pool.query("SELECT COUNT(*) FROM bots");
     const count = parseInt(result.rows[0].count, 10);
 
-    if (count === 0) {
-      for (const bot of bots) {
-        await db.query(
-          `INSERT INTO bots (id, slug, name, tagline, description, features, client_id, permissions, icon_url, color_accent, is_active, created_at)
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW())
-           ON CONFLICT (slug) DO UPDATE SET
-             name = $2, tagline = $3, description = $4, features = $5, client_id = $6, permissions = $7, icon_url = $8, color_accent = $9, is_active = true`,
-          [
-            bot.slug,
-            bot.name,
-            bot.tagline,
-            bot.description,
-            bot.features,
-            bot.clientId,
-            bot.permissions,
-            bot.iconUrl,
-            bot.colorAccent,
-          ]
-        );
-      }
-      return NextResponse.json({ message: "Bots seeded", count: bots.length });
+    if (count > 0) {
+      console.log(`Bots already seeded (${count} bots found)`);
+      return;
     }
 
-    return NextResponse.json({ count });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    for (const bot of bots) {
+      await pool.query(
+        `INSERT INTO bots (id, slug, name, tagline, description, features, client_id, permissions, icon_url, color_accent, is_active, created_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW())
+         ON CONFLICT (slug) DO UPDATE SET
+           name = $2, tagline = $3, description = $4, features = $5, client_id = $6, permissions = $7, icon_url = $8, color_accent = $9, is_active = true`,
+        [
+          bot.slug,
+          bot.name,
+          bot.tagline,
+          bot.description,
+          bot.features,
+          bot.clientId,
+          bot.permissions,
+          bot.iconUrl,
+          bot.colorAccent,
+        ]
+      );
+    }
+
+    console.log(`Seeded ${bots.length} bots`);
+  } catch (error) {
+    console.error("Seed failed:", error);
+  } finally {
+    await pool.end();
   }
 }
+
+seed();
