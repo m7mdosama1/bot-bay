@@ -72,8 +72,14 @@ def load_bot_env(bot):
     token = env.get(bot["token_env"], "")
     env["DISCORD_TOKEN"] = token
 
-    # Shared env vars — always ensure DATABASE_URL is a valid string
+    # Shared env vars — always ensure DATABASE_URL is a valid async-compatible string
     database_url = os.getenv("DATABASE_URL", "").strip()
+    if database_url:
+        # Convert postgres:// or postgresql:// to postgresql+asyncpg:// for async engine
+        if database_url.startswith("postgres://"):
+            database_url = "postgresql+asyncpg://" + database_url[len("postgres://"):]
+        elif database_url.startswith("postgresql://"):
+            database_url = "postgresql+asyncpg://" + database_url[len("postgresql://"):]
     env["DATABASE_URL"] = database_url if database_url else "sqlite+aiosqlite:///bot-bay.db"
 
     # Bot-specific extra vars
