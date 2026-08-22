@@ -173,13 +173,28 @@ def main():
     database_url = os.getenv("DATABASE_URL", "").strip()
     if database_url and "postgresql" in database_url:
         print("[INFO] Ensuring database tables exist...", flush=True)
-        import subprocess as _sp
-        _sp.run(
-            [sys.executable, "create_tables.py"],
-            cwd=str(ROOT / "apps" / "bot-runner"),
-            env=os.environ.copy(),
-            check=False,
-        )
+        # Add packages/db to path to import shared models
+        sys.path.insert(0, str(ROOT / "packages" / "db"))
+        import asyncio
+        from sqlalchemy.ext.asyncio import create_async_engine
+        from shared_models import Base
+
+        pg_url = database_url
+        if pg_url.startswith("postgres://"):
+            pg_url = "postgresql+asyncpg://" + pg_url[len("postgres://"):]
+        elif pg_url.startswith("postgresql://"):
+            pg_url = "postgresql+asyncpg://" + pg_url[len("postgresql://"):]
+        if "?" in pg_url:
+            pg_url = pg_url.split("?")[0]
+
+        async def _create_tables():
+            engine = create_async_engine(pg_url, echo=False, connect_args={"ssl": "require"})
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            await engine.dispose()
+
+        asyncio.run(_create_tables())
+        print("[OK] Database tables ready", flush=True)
 
     # Start each bot in its own thread
     threads = []
