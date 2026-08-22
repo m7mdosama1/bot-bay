@@ -140,7 +140,7 @@ async def giveaway_end(interaction: discord.Interaction, message_id: str):
 
         await session.execute(
             update(Giveaway)
-            .where(Giveaway.c.id == giveaway.id)
+            .where(Giveaway.id == giveaway.id)
             .values(status="ended")
         )
         await session.commit()

@@ -104,7 +104,7 @@ class TicketPanelView(discord.ui.View):
 
         async with AsyncSessionLocal() as session:
             result = await session.execute(
-                Ticket.__table__.select().where(Ticket.c.guild_id == guild_id)
+Ticket.__table__.select().where(Ticket.__table__.c.guild_id == guild_id)
             )
             existing = result.fetchall()
             ticket_number = len(existing) + 1
@@ -183,8 +183,8 @@ class TicketActionView(discord.ui.View):
             await session.execute(
                 Ticket.__table__.update()
                 .where(
-                    Ticket.c.guild_id == self.guild_id,
-                    Ticket.c.number == self.ticket_number,
+                    Ticket.__table__.c.guild_id == self.guild_id,
+                    Ticket.__table__.c.number == self.ticket_number,
                 )
                 .values(
                     claimed_by=str(interaction.user.id),
@@ -242,8 +242,8 @@ class TicketActionView(discord.ui.View):
             await session.execute(
                 Ticket.__table__.update()
                 .where(
-                    Ticket.c.guild_id == self.guild_id,
-                    Ticket.c.number == self.ticket_number,
+                    Ticket.__table__.c.guild_id == self.guild_id,
+                    Ticket.__table__.c.number == self.ticket_number,
                 )
                 .values(
                     status="closed",
@@ -303,7 +303,7 @@ async def ticket_stats(interaction: discord.Interaction):
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            Ticket.__table__.select().where(Ticket.c.guild_id == guild_id)
+            Ticket.__table__.select().where(Ticket.__table__.c.guild_id == guild_id)
         )
         tickets = result.fetchall()
 
