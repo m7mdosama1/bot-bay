@@ -1,7 +1,22 @@
 "use client";
 
-import { Ticket } from "@/generated/prisma/client";
 import Link from "next/link";
+
+interface Ticket {
+  id: string;
+  guildId: string;
+  number: number;
+  channelId: string;
+  type: string | null;
+  openedBy: string;
+  claimedBy: string | null;
+  closedBy: string | null;
+  status: string;
+  transcriptContent: string | null;
+  createdAt: Date;
+  claimedAt: Date | null;
+  closedAt: Date | null;
+}
 
 interface Props {
   tickets: Ticket[];

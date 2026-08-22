@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Guild } from "@/generated/prisma/client";
+
+interface Guild {
+  id: string;
+  name: string;
+  iconUrl: string | null;
+  ownerId: string;
+}
 
 interface Props {
   guild: Guild & {

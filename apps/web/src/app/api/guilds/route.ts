@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { prisma } from "@/lib/prisma";
 import { fetchUserGuilds } from "@/lib/discordApi";
+import { toggleGuildBot } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession();
@@ -32,20 +32,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { guildId, botId } = body;
 
-    const existing = await prisma.guildBot.findFirst({
-      where: { guildId, botId },
-    });
-
-    if (existing) {
-      await prisma.guildBot.update({
-        where: { id: existing.id },
-        data: { isActive: !existing.isActive },
-      });
-    } else {
-      await prisma.guildBot.create({
-        data: { guildId, botId },
-      });
-    }
+    await toggleGuildBot(guildId, botId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,9 +1,9 @@
-import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { TicketArchiveTable } from "@/components/dashboard/TicketArchiveTable";
+import { db } from "@/lib/prisma";
 
 export default async function GuildTicketsPage({
   params,
@@ -29,14 +29,23 @@ export default async function GuildTicketsPage({
     );
   }
 
-  const guild = await prisma.guild.findUnique({
-    where: { id: guildId },
-    include: {
-      tickets: {
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+  let guild;
+  let tickets: any[] = [];
+  try {
+    const guildResult = await db.query("SELECT * FROM guilds WHERE id = $1", [guildId]);
+    guild = guildResult.rows[0];
+
+    if (guild) {
+      const ticketResult = await db.query(
+        "SELECT * FROM tickets WHERE guild_id = $1 ORDER BY created_at DESC",
+        [guildId]
+      );
+      tickets = ticketResult.rows;
+    }
+  } catch (error) {
+    console.error("Failed to fetch guild tickets:", error);
+    notFound();
+  }
 
   if (!guild) {
     notFound();
@@ -63,7 +72,7 @@ export default async function GuildTicketsPage({
         </div>
 
         <div className="card-bg rounded-xl p-6">
-          <TicketArchiveTable tickets={guild.tickets} />
+          <TicketArchiveTable tickets={tickets} />
         </div>
       </main>
     </div>

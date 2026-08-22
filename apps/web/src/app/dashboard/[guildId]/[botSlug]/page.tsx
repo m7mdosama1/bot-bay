@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getGuildById } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -31,24 +31,20 @@ export default async function BotSettingsPage({
     );
   }
 
-  const guild = await prisma.guild.findUnique({
-    where: { id: guildId },
-    include: {
-      guildBots: { include: { bot: true } },
-      giveaways: true,
-      rouletteConfig: true,
-      moderationLogs: true,
-    },
-  }).catch((error) => {
+  let guild: any;
+  try {
+    guild = await getGuildById(guildId, { withBots: true });
+  } catch (error) {
     console.error("Failed to fetch guild:", error);
-    return null;
-  });
+    notFound();
+  }
 
   if (!guild) {
     notFound();
   }
 
-  const bot = guild.guildBots.find((gb) => gb.bot.slug === botSlug)?.bot;
+  const bot = guild.guildBots.find((gb: any) => gb.bot?.slug === botSlug || gb.botSlug === botSlug)?.bot
+    || guild.guildBots.find((gb: any) => gb.bot?.slug === botSlug || gb.botSlug === botSlug);
 
   if (!bot) {
     notFound();
@@ -62,9 +58,9 @@ export default async function BotSettingsPage({
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="font-display text-3xl font-bold text-white mb-2">
-              {bot.name} Settings
+              {(bot.name || "Bot")} Settings
             </h1>
-            <p className="text-text-dim">Configure {bot.name} for this server</p>
+            <p className="text-text-dim">Configure {bot.name || "Bot"} for this server</p>
           </div>
           <Link
             href={`/dashboard/${guildId}`}

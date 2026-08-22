@@ -84,3 +84,6 @@ AGENTS.md
 CLAUDE.md
 README.md
 skills-lock.json
+
+.vercel
+.env*

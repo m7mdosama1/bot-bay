@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
 import { fetchUserGuilds, syncUserGuilds, DiscordGuildWithBots } from "@/lib/discordApi";
+import { getGuildById } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -40,23 +40,22 @@ export default async function DashboardPage() {
   const guildsWithBots: DiscordGuildWithBots[] = await Promise.all(
     guilds.map(async (guild) => {
       try {
-        const bots = await prisma.guildBot.findMany({
-          where: { guildId: guild.id },
-          include: { bot: true },
-        });
+        const guildRow = await getGuildById(guild.id, { withBots: true });
+        const dbGuildBots = guildRow?.guildBots || [];
+
         return {
           ...guild,
-          bots: bots.map((gb) => ({
+          bots: dbGuildBots.map((gb: any) => ({
             id: gb.id,
             botId: gb.botId,
             isActive: gb.isActive,
             addedAt: gb.addedAt,
             bot: {
-              id: gb.bot.id,
-              name: gb.bot.name,
-              slug: gb.bot.slug,
-              colorAccent: gb.bot.colorAccent,
-              iconUrl: gb.bot.iconUrl,
+              id: gb.bot?.id || gb.botId,
+              name: gb.bot?.name || gb.botName,
+              slug: gb.bot?.slug || gb.botSlug,
+              colorAccent: gb.bot?.colorAccent || gb.botColorAccent,
+              iconUrl: gb.bot?.iconUrl || gb.botIconUrl,
             },
           })),
         };

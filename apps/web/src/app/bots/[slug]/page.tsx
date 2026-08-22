@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getBotBySlug } from "@/lib/prisma";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { useMemo } from "react";
@@ -404,9 +404,7 @@ export default async function BotDetailPage({
 
   let bot: BotDetail;
   try {
-    bot = (await prisma.bot.findUnique({
-      where: { slug },
-    })) as BotDetail;
+    bot = (await getBotBySlug(slug)) as BotDetail;
   } catch (error) {
     console.error("Failed to fetch bot:", error);
     notFound();

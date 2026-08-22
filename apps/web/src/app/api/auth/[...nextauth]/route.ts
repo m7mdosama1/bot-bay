@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
-import { prisma } from "@/lib/prisma";
+import { upsertUser } from "@/lib/prisma";
 
 const handler = NextAuth({
   providers: [
@@ -31,18 +31,7 @@ const handler = NextAuth({
       // Sync user to our database on first login
       if (token.sub && token.username) {
         try {
-          await prisma.user.upsert({
-            where: { id: token.sub },
-            update: {
-              username: token.username || "",
-              avatar: token.picture || null,
-            },
-            create: {
-              id: token.sub,
-              username: token.username || "",
-              avatar: token.picture || null,
-            },
-          });
+          await upsertUser(token.sub, token.username || "", token.picture || null);
         } catch (error) {
           console.error("Failed to sync user to database:", error);
         }

@@ -1,6 +1,29 @@
 "use client";
 
-import { Guild, Ticket } from "@/generated/prisma/client";
+interface Guild {
+  id: string;
+  name: string;
+  iconUrl: string | null;
+  ownerId: string;
+  createdAt: Date;
+}
+
+interface Ticket {
+  id: string;
+  guildId: string;
+  number: number;
+  channelId: string;
+  type: string | null;
+  openedBy: string;
+  claimedBy: string | null;
+  closedBy: string | null;
+  status: string;
+  transcriptContent: string | null;
+  createdAt: Date;
+  claimedAt: Date | null;
+  closedAt: Date | null;
+  guild: Guild;
+}
 
 interface Props {
   stats: {
@@ -9,7 +32,7 @@ interface Props {
     totalTickets: number;
     openTickets: number;
     totalGiveaways: number;
-    recentTickets: (Ticket & { guild: Guild })[];
+    recentTickets: Ticket[];
   };
 }
 

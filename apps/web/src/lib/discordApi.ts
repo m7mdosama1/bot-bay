@@ -1,4 +1,8 @@
-import { prisma } from "@/lib/prisma";
+import {
+  upsertUser,
+  upsertGuild,
+  getGuildById,
+} from "@/lib/prisma";
 
 export interface DiscordGuild {
   id: string;
@@ -63,37 +67,18 @@ export async function syncUserGuilds(
   guilds: DiscordGuild[]
 ) {
   try {
-    await prisma.user.upsert({
-      where: { id: userId },
-      update: {
-        username,
-        avatar,
-      },
-      create: {
-        id: userId,
-        username,
-        avatar,
-      },
-    });
+    await upsertUser(userId, username, avatar);
   } catch (error) {
     console.error("Failed to upsert user:", error);
   }
 
   for (const guild of guilds) {
     try {
-      await prisma.guild.upsert({
-        where: { id: guild.id },
-        update: {
-          name: guild.name,
-          iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null,
-          ownerId: guild.owner ? userId : undefined,
-        },
-        create: {
-          id: guild.id,
-          name: guild.name,
-          iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null,
-          ownerId: guild.owner ? userId : "",
-        },
+      await upsertGuild({
+        id: guild.id,
+        name: guild.name,
+        icon: guild.icon,
+        ownerId: guild.owner ? userId : "",
       });
     } catch (error) {
       console.error(`Failed to upsert guild ${guild.id}:`, error);
@@ -102,25 +87,16 @@ export async function syncUserGuilds(
 }
 
 export async function checkBotInGuild(guildId: string, botSlug: string) {
-  return prisma.guildBot.findFirst({
-    where: {
-      guildId,
-      bot: { slug: botSlug },
-    },
-    include: {
-      bot: true,
-    },
-  });
+  return getGuildById(guildId, { withBots: true });
 }
 
 export async function getBotBySlug(slug: string) {
-  return prisma.bot.findUnique({
-    where: { slug },
-  });
+  const result = await import("@/lib/prisma").then(m => m.getBotBySlug(slug));
+  return result ? { slug } : null;
 }
 
 export async function getBotFeatures(slug: string) {
-  const bot = await getBotBySlug(slug);
+  const bot = await import("@/lib/prisma").then(m => m.getBotBySlug(slug));
   if (!bot) return [];
   return JSON.parse(bot.features) as string[];
 }

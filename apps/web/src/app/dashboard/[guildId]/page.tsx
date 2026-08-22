@@ -1,9 +1,8 @@
-import { prisma } from "@/lib/prisma";
+import { getGuildById } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { notFound } from "next/navigation";
-import { Bot } from "@/generated/prisma/client";
 
 export default async function GuildDashboardPage({
   params,
@@ -32,13 +31,13 @@ export default async function GuildDashboardPage({
     );
   }
 
-  const guild = await prisma.guild.findUnique({
-    where: { id: guildId },
-    include: { guildBots: { include: { bot: true } } },
-  }).catch((error) => {
+  let guild: any;
+  try {
+    guild = await getGuildById(guildId, { withBots: true });
+  } catch (error) {
     console.error("Failed to fetch guild:", error);
-    return null;
-  });
+    notFound();
+  }
 
   if (!guild) {
     notFound();
@@ -67,24 +66,24 @@ export default async function GuildDashboardPage({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {guild.guildBots.map((gb) => (
+          {guild.guildBots.map((gb: any) => (
             <Link
-              key={gb.id}
-              href={`/dashboard/${guildId}/${gb.bot.slug}`}
+              key={gb.botId || gb.id}
+              href={`/dashboard/${guildId}/${gb.bot?.slug || gb.botSlug}`}
               className="card-bg rounded-xl p-6 hover:border-amber-signal transition-all duration-200 group"
             >
               <div className="flex items-center gap-4">
                 <div
                   className="w-12 h-12 rounded-lg flex items-center justify-center text-xl font-bold"
-                  style={{ backgroundColor: gb.bot.colorAccent, color: "#0B0B12" }}
+                  style={{ backgroundColor: gb.bot?.colorAccent || gb.botColorAccent || "#F2A93B", color: "#0B0B12" }}
                 >
-                  {gb.bot.name.charAt(0)}
+                  {(gb.bot?.name || gb.botName || "B").charAt(0)}
                 </div>
                 <div>
                   <h3 className="font-display text-xl font-semibold text-white group-hover:text-amber-signal transition-colors">
-                    {gb.bot.name}
+                    {gb.bot?.name || gb.botName}
                   </h3>
-                  <p className="text-text-dim text-sm">{gb.bot.tagline}</p>
+                  <p className="text-text-dim text-sm">{gb.bot?.tagline || "Bot"}</p>
                   <span
                     className={`text-xs font-mono ${gb.isActive ? "text-green-400" : "text-red-400"}`}
                   >

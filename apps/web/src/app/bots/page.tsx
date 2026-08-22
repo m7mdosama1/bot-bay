@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getActiveBots } from "@/lib/prisma";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { BotGrid } from "@/components/bots/BotGrid";
 
@@ -16,12 +16,9 @@ interface Bot {
   isActive: boolean;
 }
 
-async function getActiveBots(): Promise<Bot[]> {
+async function getBots(): Promise<Bot[]> {
   try {
-    return await prisma.bot.findMany({
-      where: { isActive: true },
-      orderBy: { createdAt: "desc" },
-    });
+    return await getActiveBots();
   } catch (error) {
     console.error("Failed to fetch bots:", error);
     return [];
@@ -34,7 +31,7 @@ export const metadata = {
 };
 
 export default async function BrowseBotsPage() {
-  const bots = await getActiveBots();
+  const bots = await getBots();
 
   return (
     <div className="min-h-screen bg-bg-void text-text">

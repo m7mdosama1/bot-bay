@@ -1,10 +1,10 @@
-import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { verifyAdminSession } from "@/lib/adminAuth";
 import { TicketTranscriptView } from "@/components/admin/TicketTranscriptView";
+import { getTicketById } from "@/lib/prisma";
 
 export default async function AdminTicketDetailPage({
   params,
@@ -20,11 +20,9 @@ export default async function AdminTicketDetailPage({
 
   const session = await getServerSession();
 
-  // Require admin authentication + TOTP
   const adminSession = await verifyAdminSession(session?.user?.id, session?.accessToken as string);
 
   if (!adminSession.authenticated) {
-    // Redirect to 2FA verification
     const redirectUrl = `/${process.env.ADMIN_SECRET_PATH}/verify-2fa?callbackUrl=%2F${process.env.ADMIN_SECRET_PATH}%2Ftickets%2F${ticketId}`;
     return (
       <div className="min-h-screen bg-bg-void text-text">
@@ -44,10 +42,13 @@ export default async function AdminTicketDetailPage({
     );
   }
 
-  const ticket = await prisma.ticket.findUnique({
-    where: { id: ticketId },
-    include: { guild: true },
-  });
+  let ticket;
+  try {
+    ticket = await getTicketById(ticketId);
+  } catch (error) {
+    console.error("Failed to fetch ticket:", error);
+    notFound();
+  }
 
   if (!ticket) {
     notFound();

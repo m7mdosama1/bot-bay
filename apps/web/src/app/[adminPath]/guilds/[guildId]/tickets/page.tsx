@@ -1,10 +1,10 @@
-import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { verifyAdminSession } from "@/lib/adminAuth";
 import { AdminTicketList } from "@/components/admin/AdminTicketList";
+import { getTicketsByGuild } from "@/lib/prisma";
 
 export default async function GuildTicketsAdminPage({
   params,
@@ -48,16 +48,13 @@ export default async function GuildTicketsAdminPage({
   }
 
   const statusFilter = sp?.status || "all";
-  const where: any = { guildId };
-  if (statusFilter !== "all") {
-    where.status = statusFilter;
-  }
 
-  const tickets = await prisma.ticket.findMany({
-    where,
-    include: { guild: true },
-    orderBy: { createdAt: "desc" },
-  });
+  let tickets: any[] = [];
+  try {
+    tickets = await getTicketsByGuild(guildId, statusFilter);
+  } catch (error) {
+    console.error("Failed to fetch tickets:", error);
+  }
 
   return (
     <div className="min-h-screen bg-bg-void text-white">
@@ -66,7 +63,7 @@ export default async function GuildTicketsAdminPage({
       <main className="pt-24 container mx-auto px-6 py-12">
         <div className="mb-8 flex items-center justify-between">
           <h1 className="font-display text-3xl font-bold text-white">
-            Ticket Archive — {tickets[0]?.guild?.name || guildId}
+            Ticket Archive — {tickets[0]?.guildName || guildId}
           </h1>
           <Link
             href={`/${process.env.ADMIN_SECRET_PATH}`}
@@ -83,7 +80,10 @@ export default async function GuildTicketsAdminPage({
             </div>
           ) : (
             tickets.map((ticket) => (
-              <AdminTicketList key={ticket.id} ticket={ticket} />
+              <AdminTicketList key={ticket.id} ticket={{
+                ...ticket,
+                guild: { name: ticket.guildName, iconUrl: ticket.guildIconUrl }
+              }} />
             ))
           )}
         </div>

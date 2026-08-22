@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getActiveBots } from "@/lib/prisma";
 import { Suspense } from "react";
 import Link from "next/link";
 import { BotGrid } from "@/components/bots/BotGrid";
@@ -27,10 +27,7 @@ interface Bot {
 
 async function getBots(): Promise<Bot[]> {
   try {
-    return await prisma.bot.findMany({
-      where: { isActive: true },
-      orderBy: { createdAt: "desc" },
-    });
+    return await getActiveBots();
   } catch (error) {
     console.error("Failed to fetch bots:", error);
     return [];

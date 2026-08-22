@@ -1,10 +1,33 @@
 "use client";
 
-import { Ticket, Guild } from "@/generated/prisma/client";
 import Link from "next/link";
 
+interface Guild {
+  id: string;
+  name: string;
+  iconUrl: string | null;
+  ownerId: string;
+}
+
+interface Ticket {
+  id: string;
+  guildId: string;
+  number: number;
+  channelId: string;
+  type: string | null;
+  openedBy: string;
+  claimedBy: string | null;
+  closedBy: string | null;
+  status: string;
+  transcriptContent: string | null;
+  createdAt: Date;
+  claimedAt: Date | null;
+  closedAt: Date | null;
+  guild: Guild;
+}
+
 interface Props {
-  ticket: Ticket & { guild: Guild };
+  ticket: Ticket;
 }
 
 export function AdminTicketList({ ticket }: Props) {

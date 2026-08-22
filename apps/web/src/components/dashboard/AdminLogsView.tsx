@@ -1,9 +1,21 @@
 "use client";
 
-import { Guild, ModerationLog } from "@/generated/prisma/client";
+interface ModerationLog {
+  id: string;
+  guildId: string;
+  action: string;
+  targetUserId: string;
+  moderatorId: string;
+  reason: string | null;
+  createdAt: Date;
+}
 
 interface Props {
-  guild: Guild & {
+  guild: {
+    id: string;
+    name: string;
+    iconUrl: string | null;
+    ownerId: string;
     moderationLogs: ModerationLog[];
   };
 }

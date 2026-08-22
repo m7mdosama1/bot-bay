@@ -1,6 +1,20 @@
 "use client";
 
-import { RouletteConfig, Guild } from "@/generated/prisma/client";
+interface RouletteConfig {
+  id: string;
+  guildId: string;
+  minBet: number;
+  maxBet: number;
+  currencyName: string;
+  enabled: boolean;
+}
+
+interface Guild {
+  id: string;
+  name: string;
+  iconUrl: string | null;
+  ownerId: string;
+}
 
 interface Props {
   guild: Guild & {

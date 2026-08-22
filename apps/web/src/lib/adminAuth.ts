@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/prisma";
 import { verifyTotpToken } from "@/lib/totp";
 
 interface AdminSession {
@@ -7,12 +7,11 @@ interface AdminSession {
   isAdmin?: boolean;
 }
 
-// In-memory store for admin sessions (in production, use Redis or encrypted DB sessions)
 const adminSessions = new Map<string, { userId: string; secret: string; createdAt: number }>();
 
-const ADMIN_SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours
+const ADMIN_SESSION_DURATION = 8 * 60 * 60 * 1000;
 const MAX_FAILED_ATTEMPTS = 5;
-const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
+const LOCKOUT_DURATION = 15 * 60 * 1000;
 
 const failedAttempts = new Map<string, { count: number; lastAttempt: number }>();
 
@@ -34,17 +33,22 @@ export async function verifyAdminSession(userId?: string, accessToken?: string):
     return { authenticated: false };
   }
 
-  // Verify user is still in the allowlist
   if (!ADMIN_ALLOWLIST.includes(userId)) {
     return { authenticated: false };
   }
 
-  // Verify against database
-  const dbUser = await prisma.user.findUnique({
-    where: { id: userId },
-  });
+  try {
+    const result = await db.query(
+      "SELECT is_admin as \"isAdmin\" FROM users WHERE id = $1",
+      [userId]
+    );
+    const dbUser = result.rows[0];
 
-  if (!dbUser?.isAdmin) {
+    if (!dbUser?.isAdmin) {
+      return { authenticated: false };
+    }
+  } catch (error) {
+    console.error("Failed to verify admin user:", error);
     return { authenticated: false };
   }
 
@@ -63,7 +67,6 @@ export function checkFailedAttempts(userId: string): { locked: boolean; remainin
 
   const now = Date.now();
   if (now - attempts.lastAttempt > LOCKOUT_DURATION) {
-    // Reset after lockout period
     failedAttempts.delete(userId);
     return { locked: false, remaining: MAX_FAILED_ATTEMPTS };
   }
@@ -108,10 +111,8 @@ export function verifyTotpAndCreateSession(userId: string, token: string): { suc
     };
   }
 
-  // Clear failed attempts on success
   failedAttempts.delete(userId);
 
-  // Create admin session
   adminSessions.set(userId, {
     userId,
     secret,
@@ -123,26 +124,23 @@ export function verifyTotpAndCreateSession(userId: string, token: string): { suc
 
 export async function getAdminStats() {
   const [totalUsers, totalGuilds, totalTickets, openTickets, totalGiveaways] = await Promise.all([
-    prisma.user.count(),
-    prisma.guild.count(),
-    prisma.ticket.count(),
-    prisma.ticket.count({ where: { status: "open" } }),
-    prisma.giveaway.count(),
+    db.query("SELECT COUNT(*) FROM users"),
+    db.query("SELECT COUNT(*) FROM guilds"),
+    db.query("SELECT COUNT(*) FROM tickets"),
+    db.query("SELECT COUNT(*) FROM tickets WHERE status = 'open'"),
+    db.query("SELECT COUNT(*) FROM giveaways"),
   ]);
 
-  const recentTickets = await prisma.ticket.findMany({
-    where: { status: "closed" },
-    include: { guild: true },
-    orderBy: { closedAt: "desc" },
-    take: 10,
-  });
+  const recentTicketsResult = await db.query(
+    "SELECT t.*, g.name as \"guildName\", g.icon_url as \"guildIconUrl\" FROM tickets t JOIN guilds g ON t.guild_id = g.id WHERE t.status = 'closed' ORDER BY t.closed_at DESC LIMIT 10"
+  );
 
   return {
-    totalUsers,
-    totalGuilds,
-    totalTickets,
-    openTickets,
-    totalGiveaways,
-    recentTickets,
+    totalUsers: parseInt(totalUsers.rows[0].count, 10),
+    totalGuilds: parseInt(totalGuilds.rows[0].count, 10),
+    totalTickets: parseInt(totalTickets.rows[0].count, 10),
+    openTickets: parseInt(openTickets.rows[0].count, 10),
+    totalGiveaways: parseInt(totalGiveaways.rows[0].count, 10),
+    recentTickets: recentTicketsResult.rows,
   };
 }
