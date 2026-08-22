@@ -2,7 +2,10 @@
   "$schema": "https://railway.app/railway.schema.json",
   "services": {
     "bot-runner": {
-      "source": "apps/bot-runner",
+      "source": ".",
+      "build": {
+        "dockerfilePath": "Dockerfile"
+      },
       "deploy": {
         "startCommand": "python run-all-bots.py",
         "restartPolicy": {

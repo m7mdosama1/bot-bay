@@ -23,7 +23,7 @@ COPY apps/bot-runner/run-all-bots.py ./run-all-bots.py
 # Set Python path to find shared models
 ENV PYTHONPATH=/app/packages/db
 
-# Health check
+# Health check (optional)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD python -c "import sys; sys.exit(0)"
 
