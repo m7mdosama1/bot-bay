@@ -33,30 +33,37 @@ export default async function DashboardPage() {
     session.user.username || session.user.name || "Unknown",
     session.user.avatar || null,
     guilds
-  );
+  ).catch((error) => {
+    console.error("Failed to sync user guilds:", error);
+  });
 
   const guildsWithBots: DiscordGuildWithBots[] = await Promise.all(
     guilds.map(async (guild) => {
-      const bots = await prisma.guildBot.findMany({
-        where: { guildId: guild.id },
-        include: { bot: true },
-      });
-      return {
-        ...guild,
-        bots: bots.map((gb) => ({
-          id: gb.id,
-          botId: gb.botId,
-          isActive: gb.isActive,
-          addedAt: gb.addedAt,
-          bot: {
-            id: gb.bot.id,
-            name: gb.bot.name,
-            slug: gb.bot.slug,
-            colorAccent: gb.bot.colorAccent,
-            iconUrl: gb.bot.iconUrl,
-          },
-        })),
-      };
+      try {
+        const bots = await prisma.guildBot.findMany({
+          where: { guildId: guild.id },
+          include: { bot: true },
+        });
+        return {
+          ...guild,
+          bots: bots.map((gb) => ({
+            id: gb.id,
+            botId: gb.botId,
+            isActive: gb.isActive,
+            addedAt: gb.addedAt,
+            bot: {
+              id: gb.bot.id,
+              name: gb.bot.name,
+              slug: gb.bot.slug,
+              colorAccent: gb.bot.colorAccent,
+              iconUrl: gb.bot.iconUrl,
+            },
+          })),
+        };
+      } catch (error) {
+        console.error("Failed to fetch guild bots:", error);
+        return { ...guild, bots: [] };
+      }
     })
   );
 

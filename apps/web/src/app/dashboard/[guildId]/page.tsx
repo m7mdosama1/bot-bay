@@ -35,6 +35,9 @@ export default async function GuildDashboardPage({
   const guild = await prisma.guild.findUnique({
     where: { id: guildId },
     include: { guildBots: { include: { bot: true } } },
+  }).catch((error) => {
+    console.error("Failed to fetch guild:", error);
+    return null;
   });
 
   if (!guild) {

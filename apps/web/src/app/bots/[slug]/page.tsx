@@ -401,9 +401,16 @@ export default async function BotDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const bot = (await prisma.bot.findUnique({
-    where: { slug },
-  })) as BotDetail;
+
+  let bot: BotDetail;
+  try {
+    bot = (await prisma.bot.findUnique({
+      where: { slug },
+    })) as BotDetail;
+  } catch (error) {
+    console.error("Failed to fetch bot:", error);
+    notFound();
+  }
 
   if (!bot || !bot.isActive) {
     notFound();

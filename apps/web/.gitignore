@@ -36,8 +36,8 @@ yarn-error.log*
 # vercel
 .vercel
 
-# prisma client (generated during build via postinstall/build scripts)
-/src/generated/prisma
+# ignore Windows engine binary (generated at build time on Vercel's Linux)
+/src/generated/prisma/query_engine-windows.dll.node
 
 # typescript
 *.tsbuildinfo

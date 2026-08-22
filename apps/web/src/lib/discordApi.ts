@@ -62,34 +62,42 @@ export async function syncUserGuilds(
   avatar: string | null,
   guilds: DiscordGuild[]
 ) {
-  await prisma.user.upsert({
-    where: { id: userId },
-    update: {
-      username,
-      avatar,
-    },
-    create: {
-      id: userId,
-      username,
-      avatar,
-    },
-  });
-
-  for (const guild of guilds) {
-    await prisma.guild.upsert({
-      where: { id: guild.id },
+  try {
+    await prisma.user.upsert({
+      where: { id: userId },
       update: {
-        name: guild.name,
-        iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null,
-        ownerId: guild.owner ? userId : undefined,
+        username,
+        avatar,
       },
       create: {
-        id: guild.id,
-        name: guild.name,
-        iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null,
-        ownerId: guild.owner ? userId : "",
+        id: userId,
+        username,
+        avatar,
       },
     });
+  } catch (error) {
+    console.error("Failed to upsert user:", error);
+  }
+
+  for (const guild of guilds) {
+    try {
+      await prisma.guild.upsert({
+        where: { id: guild.id },
+        update: {
+          name: guild.name,
+          iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null,
+          ownerId: guild.owner ? userId : undefined,
+        },
+        create: {
+          id: guild.id,
+          name: guild.name,
+          iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null,
+          ownerId: guild.owner ? userId : "",
+        },
+      });
+    } catch (error) {
+      console.error(`Failed to upsert guild ${guild.id}:`, error);
+    }
   }
 }
 

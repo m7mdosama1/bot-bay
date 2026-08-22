@@ -26,10 +26,15 @@ interface Bot {
 }
 
 async function getBots(): Promise<Bot[]> {
-  return prisma.bot.findMany({
-    where: { isActive: true },
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    return await prisma.bot.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    console.error("Failed to fetch bots:", error);
+    return [];
+  }
 }
 
 export default async function HomePage() {

@@ -39,6 +39,9 @@ export default async function BotSettingsPage({
       rouletteConfig: true,
       moderationLogs: true,
     },
+  }).catch((error) => {
+    console.error("Failed to fetch guild:", error);
+    return null;
   });
 
   if (!guild) {

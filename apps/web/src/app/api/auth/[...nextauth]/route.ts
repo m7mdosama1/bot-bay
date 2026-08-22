@@ -30,18 +30,22 @@ const handler = NextAuth({
 
       // Sync user to our database on first login
       if (token.sub && token.username) {
-        await prisma.user.upsert({
-          where: { id: token.sub },
-          update: {
-            username: token.username || "",
-            avatar: token.picture || null,
-          },
-          create: {
-            id: token.sub,
-            username: token.username || "",
-            avatar: token.picture || null,
-          },
-        });
+        try {
+          await prisma.user.upsert({
+            where: { id: token.sub },
+            update: {
+              username: token.username || "",
+              avatar: token.picture || null,
+            },
+            create: {
+              id: token.sub,
+              username: token.username || "",
+              avatar: token.picture || null,
+            },
+          });
+        } catch (error) {
+          console.error("Failed to sync user to database:", error);
+        }
       }
 
       return token;
