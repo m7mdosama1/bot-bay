@@ -169,6 +169,18 @@ def main():
         print()
         sys.exit(1)
 
+    # Create database tables if using PostgreSQL
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if database_url and "postgresql" in database_url:
+        print("[INFO] Ensuring database tables exist...", flush=True)
+        import subprocess as _sp
+        _sp.run(
+            [sys.executable, "create_tables.py"],
+            cwd=str(ROOT / "apps" / "bot-runner"),
+            env=os.environ.copy(),
+            check=False,
+        )
+
     # Start each bot in its own thread
     threads = []
     for bot in BOTS:
