@@ -29,7 +29,9 @@ type BotDetail = Bot & {
   };
 } | null;
 
-const botDetailsMap: Record<string, BotDetail["botDetails"]> = {
+type NonNullBotDetail = NonNullable<BotDetail>;
+
+const botDetailsMap: Record<string, NonNullBotDetail["botDetails"]> = {
   verification: {
     commands: ["/verify-setup", "/verify-config", "/verify-check", "/verify-reset"],
     commandCategories: [

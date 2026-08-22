@@ -2,7 +2,17 @@
 
 import { useState, useEffect, useRef } from "react";
 
-const testimonials = [
+interface Testimonial {
+  id: number;
+  name: string;
+  role: string;
+  content: string;
+  rating: number;
+  bot: string;
+  botColor: string;
+}
+
+const testimonials: Testimonial[] = [
   {
     id: 1,
     name: "Alex Chen",
