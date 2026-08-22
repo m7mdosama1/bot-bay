@@ -72,7 +72,7 @@ def load_bot_env(bot):
     token = env.get(bot["token_env"], "")
     env["DISCORD_TOKEN"] = token
 
-    # Shared env vars — always ensure DATABASE_URL is a valid async-compatible string
+    # Shared env vars — always ensure DATABASE_URL is async-compatible with asyncpg
     database_url = os.getenv("DATABASE_URL", "").strip()
     if database_url:
         # Convert postgres:// or postgresql:// to postgresql+asyncpg:// for async engine
@@ -80,12 +80,18 @@ def load_bot_env(bot):
             database_url = "postgresql+asyncpg://" + database_url[len("postgres://"):]
         elif database_url.startswith("postgresql://"):
             database_url = "postgresql+asyncpg://" + database_url[len("postgresql://"):]
-        # Strip sslmode query param (asyncpg doesn't support it, uses ssl= query instead)
+        # Handle query params: asyncpg doesn't support sslmode/channel_binding/etc.
+        # Convert sslmode=require to ssl=True
         if "?" in database_url:
             base, query = database_url.split("?", 1)
-            params = [p for p in query.split("&") if not p.startswith("sslmode") and p.strip()]
+            params = {}
+            for p in query.split("&"):
+                if "=" in p:
+                    k, v = p.split("=", 1)
+                    if k == "sslmode" and v == "require":
+                        params["ssl"] = "true"
             if params:
-                database_url = base + "?" + "&".join(params)
+                database_url = base + "?" + "&".join(f"{k}={v}" for k, v in params.items())
             else:
                 database_url = base
     env["DATABASE_URL"] = database_url if database_url else "sqlite+aiosqlite:///bot-bay.db"
