@@ -54,8 +54,16 @@ async def get_roulette_config(guild_id: str):
         result = await session.execute(
             select(RouletteConfig).where(RouletteConfig.guild_id == guild_id)
         )
-        row = result.fetchone()
-        return dict(row._mapping) if row else None
+        config = result.scalar_one_or_none()
+        if config:
+            return {
+                "guild_id": config.guild_id,
+                "min_bet": config.min_bet,
+                "max_bet": config.max_bet,
+                "currency_name": config.currency_name,
+                "enabled": config.enabled,
+            }
+        return None
 
 
 @bot.tree.command(name="roulette-setup", description="Set up the roulette panel")
