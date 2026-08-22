@@ -1,23 +1,15 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "services": {
-    "bot-verification": {
-      "source": "apps/bot-verification"
-    },
-    "bot-giveaway": {
-      "source": "apps/bot-giveaway"
-    },
-    "bot-roulette": {
-      "source": "apps/bot-roulette"
-    },
-    "bot-admin": {
-      "source": "apps/bot-admin"
-    },
-    "bot-ticket": {
-      "source": "apps/bot-ticket"
-    },
-    "bot-welcome": {
-      "source": "apps/bot-welcome"
+    "bot-runner": {
+      "source": "apps/bot-runner",
+      "deploy": {
+        "startCommand": "python run-all-bots.py",
+        "restartPolicy": {
+          "type": "on-failure",
+          "maxRestarts": 5
+        }
+      }
     }
   }
 }

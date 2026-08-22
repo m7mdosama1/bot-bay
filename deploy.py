@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
 Bot Bay — Unified Deploy Script
-Deploys all Discord bots to Railway and the web dashboard to Vercel.
+Deploys all Discord bots (as single service) to Railway and web to Vercel.
 
 Usage:
     python deploy.py deploy-all         # Deploy bots to Railway + web to Vercel
-    python deploy.py deploy bots        # Deploy all bots to Railway
+    python deploy.py deploy bots        # Deploy bot-runner to Railway
     python deploy.py deploy web         # Deploy web to Vercel
-    python deploy.py deploy bot-verification  # Deploy a single bot
-    python deploy.py link-all           # Link all services to Railway project
+    python deploy.py link-all           # Link services to Railway/Vercel projects
     python deploy.py list               # List all available services
 """
 
@@ -23,37 +22,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 
-BOTS = {
-    "bot-verification": {
-        "path": "apps/bot-verification",
-        "description": "Sentinel Verify — Anti-alt & VPN verification",
-        "required_env": ["DISCORD_TOKEN", "DATABASE_URL"],
-    },
-    "bot-giveaway": {
-        "path": "apps/bot-giveaway",
-        "description": "Bounty Drop — Automated giveaways",
-        "required_env": ["DISCORD_TOKEN", "DATABASE_URL"],
-    },
-    "bot-roulette": {
-        "path": "apps/bot-roulette",
-        "description": "Fortune Wheel — Interactive roulette with betting",
-        "required_env": ["DISCORD_TOKEN", "DATABASE_URL"],
-    },
-    "bot-admin": {
-        "path": "apps/bot-admin",
-        "description": "Iron Gavel — Moderation toolkit",
-        "required_env": ["DISCORD_TOKEN", "DATABASE_URL"],
-    },
-    "bot-ticket": {
-        "path": "apps/bot-ticket",
-        "description": "Deskline — Persistent ticket system",
-        "required_env": ["DISCORD_TOKEN", "DATABASE_URL"],
-    },
-    "bot-welcome": {
-        "path": "apps/bot-welcome",
-        "description": "Threshold — Welcome channels with rule acceptance",
-        "required_env": ["DISCORD_TOKEN", "DATABASE_URL"],
-    },
+BOT_RUNNER = {
+    "path": "apps/bot-runner",
+    "description": "Unified runner — all 6 Discord bots in one Railway service",
+    "required_env": [
+        "BOT_VERIFICATION_TOKEN",
+        "BOT_GIVEAWAY_TOKEN",
+        "BOT_ROULETTE_TOKEN",
+        "BOT_ADMIN_TOKEN",
+        "BOT_WELCOME_TOKEN",
+        "BOT_TICKET_TOKEN",
+        "DATABASE_URL",
+    ],
 }
 
 WEB = {
@@ -62,10 +42,19 @@ WEB = {
     "required_env": ["DATABASE_URL", "NEXTAUTH_URL", "NEXTAUTH_SECRET"],
 }
 
+ALL_BOTS = [
+    "bot-verification",
+    "bot-giveaway",
+    "bot-roulette",
+    "bot-admin",
+    "bot-ticket",
+    "bot-welcome",
+]
+
 
 def run(cmd, cwd=None, check=True):
     """Run a shell command and print output."""
-    print(f"  → {cmd}")
+    print(f"  -> {cmd}")
     result = subprocess.run(
         cmd, shell=True, cwd=cwd or ROOT,
         capture_output=True, text=True
@@ -83,13 +72,13 @@ def check_cli(tool: str):
     """Verify a CLI tool is installed."""
     result = subprocess.run(f"{tool} --version", shell=True, capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"❌ {tool.title()} CLI not found.")
+        print(f"[FAIL] {tool} CLI not found.")
         if tool == "railway":
             print("   Install: npm install -g railway")
         elif tool == "vercel":
             print("   Install: npm install -g vercel")
         sys.exit(1)
-    print(f"✅ {tool.title()} CLI: {result.stdout.strip()}")
+    print(f"[OK] {tool} CLI: {result.stdout.strip()}")
 
 
 def prepare_env(service_path: str, service_name: str):
@@ -99,11 +88,11 @@ def prepare_env(service_path: str, service_name: str):
         example = ROOT / service_path / ".env.example"
         if example.exists():
             shutil.copy2(example, env_path)
-            print(f"   ⚠️  Created .env from .env.example for {service_name}")
-            print(f"   ⚠️  Please edit {env_path} with your real values before deploying!")
+            print(f"   Created .env from .env.example for {service_name}")
+            print(f"   Please edit {env_path} with your real values before deploying!")
             return False
         else:
-            print(f"   ❌ No .env.example found for {service_name}")
+            print(f"   No .env.example found for {service_name}")
             return False
     return True
 
@@ -124,38 +113,38 @@ def verify_env(service_path: str, service_name: str, required_vars: list):
             if line.startswith(f"{var}="):
                 value = line.split("=", 1)[1].strip()
                 break
-        if not value or "your_" in value.lower() or "placeholder" in value.lower():
+        if not value or "your_" in value.lower() or "placeholder" in value.lower() or "your_bot" in value.lower():
             missing.append(var)
 
     if missing:
-        print(f"   ⚠️  Missing or placeholder env vars in {service_name}: {', '.join(missing)}")
+        print(f"   Missing or placeholder env vars in {service_name}: {', '.join(missing)}")
 
 
-def deploy_bot(name):
-    """Deploy a single bot to Railway."""
-    if name not in BOTS:
-        print(f"❌ Unknown bot: {name}")
+def deploy_bots():
+    """Deploy the unified bot-runner to Railway."""
+    print("\n[OK] Deploying bots to Railway...")
+    check_cli("railway")
+
+    print(f"\n  Service: bot-runner ({BOT_RUNNER['description']})")
+    print(f"  Path:    {BOT_RUNNER['path']}")
+    print(f"  Bots:    {', '.join(ALL_BOTS)}")
+
+    if not prepare_env(BOT_RUNNER["path"], "bot-runner"):
         return False
-
-    info = BOTS[name]
-    print(f"\n🚀 Deploying {name} to Railway ({info['description']})...")
-
-    if not prepare_env(info["path"], name):
-        return False
-    verify_env(info["path"], name, info["required_env"])
+    verify_env(BOT_RUNNER["path"], "bot-runner", BOT_RUNNER["required_env"])
 
     try:
-        run("railway up", cwd=str(ROOT / info["path"]))
-        print(f"✅ {name} deployed to Railway!")
+        run("railway up", cwd=str(ROOT / BOT_RUNNER["path"]))
+        print("\n[OK] Bot runner deployed to Railway!")
         return True
     except RuntimeError as e:
-        print(f"❌ Failed to deploy {name}: {e}")
+        print(f"\n[FAIL] Failed to deploy bots: {e}")
         return False
 
 
 def deploy_web():
     """Deploy the web dashboard to Vercel."""
-    print(f"\n🚀 Deploying web to Vercel ({WEB['description']})...")
+    print(f"\n[OK] Deploying web to Vercel ({WEB['description']})...")
 
     if not prepare_env(WEB["path"], "web"):
         return False
@@ -163,75 +152,63 @@ def deploy_web():
 
     try:
         run("vercel --prod", cwd=str(ROOT / WEB["path"]))
-        print(f"✅ web deployed to Vercel!")
+        print("\n[OK] web deployed to Vercel!")
         return True
     except RuntimeError as e:
-        print(f"❌ Failed to deploy web: {e}")
+        print(f"\n[FAIL] Failed to deploy web: {e}")
         return True
-
-
-def deploy_all_bots():
-    """Deploy all bots to Railway."""
-    print("\n🚀 Deploying all bots to Railway...")
-    check_cli("railway")
-
-    results = {}
-    for name in BOTS:
-        results[name] = deploy_bot(name)
-
-    print("\n" + "=" * 60)
-    print("  Railway Deploy Summary")
-    print("=" * 60)
-    for name, success in results.items():
-        status = "✅" if success else "⚠️"
-        print(f"  {status} {name}")
-
-    return all(results.values())
 
 
 def deploy_all():
-    """Deploy all bots to Railway + web to Vercel."""
+    """Deploy bots to Railway + web to Vercel."""
     print("\n" + "=" * 60)
-    print("  Bot Bay — Unified Deploy (Railway bots + Vercel web)")
+    print("  Bot Bay — Unified Deploy")
+    print("  Bots -> Railway (single service)")
+    print("  Web  -> Vercel")
     print("=" * 60)
 
-    bots_ok = deploy_all_bots()
+    bots_ok = deploy_bots()
     web_ok = deploy_web()
 
     print("\n" + "=" * 60)
     print("  Deploy Complete")
     print("=" * 60)
     if bots_ok and web_ok:
-        print("✅ All services deployed successfully!")
+        print("[OK] All services deployed successfully!")
     else:
-        print("⚠️  Some services may need attention (see above)")
+        print("[WARN] Some services may need attention (see above)")
 
 
 def list_services():
     """List all available services."""
-    print("\n📦 Available Services:\n")
-    print("  Railway (Bots):")
-    for name, info in BOTS.items():
-        print(f"    {name}")
-        print(f"      → {info['description']}")
-    print(f"\n  Vercel (Web):")
+    print("\n  Available Services:\n")
+    print("  Railway:")
+    print(f"    bot-runner")
+    print(f"      -> {BOT_RUNNER['description']}")
+    print(f"      -> Contains: {', '.join(ALL_BOTS)}")
+    print(f"\n  Vercel:")
     print(f"    web")
-    print(f"      → {WEB['description']}")
+    print(f"      -> {WEB['description']}")
     print()
 
 
 def link_all():
-    """Link all bot directories to a Railway project."""
-    print("\n🔗 Linking bot services to Railway project...")
+    """Link services to projects."""
+    print("\n[OK] Linking services...")
     check_cli("railway")
 
-    for name in BOTS:
-        service_path = ROOT / BOTS[name]["path"]
-        print(f"\n  Linking {name}...")
-        try:
-            run("railway link", cwd=str(service_path))
-        except RuntimeError:
-            print(f"   Skip: {name} may already be linked")
+    print("\n  Linking bot-runner to Railway...")
+    try:
+        run("railway link", cwd=str(ROOT / BOT_RUNNER["path"]))
+    except RuntimeError:
+        print("   Skip: may already be linked")
+
+    check_cli("vercel")
+    print("\n  Linking web to Vercel...")
+    try:
+        run("vercel link", cwd=str(ROOT / WEB["path"]))
+    except RuntimeError:
+        print("   Skip: may already be linked")
 
 
 if __name__ == "__main__":
@@ -241,18 +218,16 @@ if __name__ == "__main__":
         deploy_all()
     elif args[0] == "deploy":
         if len(args) < 2:
-            print("Usage: python deploy.py deploy <bots|web|bot-name>")
+            print("Usage: python deploy.py deploy <bots|web>")
             sys.exit(1)
         target = args[1]
         if target == "bots":
-            deploy_all_bots()
+            deploy_bots()
         elif target == "web":
             deploy_web()
-        elif target in BOTS:
-            deploy_bot(target)
         else:
             print(f"Unknown target: {target}")
-            print(f"Available: bots, web, {', '.join(BOTS.keys())}")
+            print("Available: bots, web")
             sys.exit(1)
     elif args[0] == "link-all":
         link_all()
@@ -260,4 +235,3 @@ if __name__ == "__main__":
         list_services()
     else:
         print(__doc__)
-        print(f"\nAvailable bots: {', '.join(BOTS.keys())}")
