@@ -21,17 +21,27 @@ const handler = NextAuth({
       }
       return session;
     },
-    async jwt({ token, account, user }) {
+    async jwt({ token, account, user, profile }) {
       if (account) {
         token.access_token = account.access_token;
         token.username = (user as any)?.username || (user as any)?.name;
         token.picture = (user as any)?.image;
       }
 
+      // Use Discord profile ID as the sub if not already set
+      const discordId = (profile as any)?.id || (user as any)?.id || token.sub;
+      if (discordId) {
+        token.sub = discordId as string;
+      }
+
       // Sync user to our database on first login
-      if (token.sub && token.username) {
+      if (token.sub && (token.username || (profile as any)?.username || (user as any)?.name)) {
         try {
-          await upsertUser(token.sub, token.username || "", token.picture || null);
+          await upsertUser(
+            token.sub,
+            token.username || (profile as any)?.username || (user as any)?.name || "Unknown",
+            token.picture || null
+          );
         } catch (error) {
           console.error("Failed to sync user to database:", error);
         }
