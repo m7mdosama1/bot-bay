@@ -20,7 +20,7 @@ const handler = NextAuth({
   callbacks: {
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.sub!;
+        session.user.id = token.sub || token.uid || "";
         session.user.username = token.username as string;
         session.user.avatar = token.picture as string;
         session.accessToken = token.access_token as string;
@@ -33,7 +33,13 @@ const handler = NextAuth({
         token.username = (user as any)?.username || (user as any)?.name;
         token.picture = (user as any)?.image;
         // Use providerAccountId (Discord user ID) as the sub
-        token.sub = (account.providerAccountId as string) || (profile as any)?.id || (user as any)?.id;
+        if (account.providerAccountId) {
+          token.sub = account.providerAccountId;
+        } else if ((profile as any)?.id) {
+          token.sub = (profile as any).id;
+        } else if ((user as any)?.id) {
+          token.sub = (user as any).id;
+        }
       }
 
       // Sync user to our database on first login
