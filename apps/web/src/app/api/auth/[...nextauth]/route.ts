@@ -20,7 +20,7 @@ const handler = NextAuth({
   callbacks: {
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.sub || token.uid || "";
+        session.user.id = (token.sub || token.uid || "") as string;
         session.user.username = token.username as string;
         session.user.avatar = token.picture as string;
         session.accessToken = token.access_token as string;
