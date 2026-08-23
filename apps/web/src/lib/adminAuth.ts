@@ -15,7 +15,12 @@ const LOCKOUT_DURATION = 15 * 60 * 1000;
 
 const failedAttempts = new Map<string, { count: number; lastAttempt: number }>();
 
-const ADMIN_ALLOWLIST = process.env.ADMIN_ALLOWLIST?.split(",") || [];
+function getAdminAllowlist(): string[] {
+  const allowlist = process.env.ADMIN_ALLOWLIST?.split(",") || [];
+  return allowlist.map((id) => id.trim()).filter(Boolean);
+}
+
+const ADMIN_ALLOWLIST: string[] = [];
 
 export async function verifyAdminSession(userId?: string, accessToken?: string): Promise<AdminSession> {
   if (!userId) {
@@ -33,7 +38,7 @@ export async function verifyAdminSession(userId?: string, accessToken?: string):
     return { authenticated: false };
   }
 
-  if (!ADMIN_ALLOWLIST.includes(userId)) {
+  if (!getAdminAllowlist().includes(userId)) {
     return { authenticated: false };
   }
 
@@ -56,7 +61,7 @@ export async function verifyAdminSession(userId?: string, accessToken?: string):
 }
 
 export function isAdminAllowlisted(userId: string): boolean {
-  return ADMIN_ALLOWLIST.includes(userId);
+  return getAdminAllowlist().includes(userId);
 }
 
 export function checkFailedAttempts(userId: string): { locked: boolean; remaining: number } {
