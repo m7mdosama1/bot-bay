@@ -27,6 +27,11 @@ export async function verifyAdminSession(userId?: string, accessToken?: string):
     return { authenticated: false };
   }
 
+  const allowlist = getAdminAllowlist();
+  if (!allowlist.includes(userId)) {
+    return { authenticated: false };
+  }
+
   const session = adminSessions.get(userId);
   if (!session) {
     return { authenticated: false };
@@ -35,10 +40,6 @@ export async function verifyAdminSession(userId?: string, accessToken?: string):
   const now = Date.now();
   if (now - session.createdAt > ADMIN_SESSION_DURATION) {
     adminSessions.delete(userId);
-    return { authenticated: false };
-  }
-
-  if (!getAdminAllowlist().includes(userId)) {
     return { authenticated: false };
   }
 

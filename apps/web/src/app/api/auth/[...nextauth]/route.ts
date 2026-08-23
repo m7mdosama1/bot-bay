@@ -1,13 +1,19 @@
 import NextAuth from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
-import { upsertUser } from "@/lib/prisma";
+import { markAdminIfAllowlisted } from "@/lib/prisma";
 
 const handler = NextAuth({
   providers: [
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID!,
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-      authorization: { params: { scope: "identify guilds email" } },
+      authorization: {
+        url: "https://discord.com/api/oauth2/authorize",
+        params: {
+          scope: "identify guilds email",
+          prompt: "consent",
+        },
+      },
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
@@ -26,20 +32,17 @@ const handler = NextAuth({
         token.access_token = account.access_token;
         token.username = (user as any)?.username || (user as any)?.name;
         token.picture = (user as any)?.image;
-      }
-
-      // Use Discord profile ID as the sub if not already set
-      const discordId = (profile as any)?.id || (user as any)?.id || token.sub;
-      if (discordId) {
-        token.sub = discordId as string;
+        // Use providerAccountId (Discord user ID) as the sub
+        token.sub = (account.providerAccountId as string) || (profile as any)?.id || (user as any)?.id;
       }
 
       // Sync user to our database on first login
-      if (token.sub && (token.username || (profile as any)?.username || (user as any)?.name)) {
+      if (token.sub) {
+        const username = token.username || (profile as any)?.username || (user as any)?.name || "Unknown";
         try {
-          await upsertUser(
+          await markAdminIfAllowlisted(
             token.sub,
-            token.username || (profile as any)?.username || (user as any)?.name || "Unknown",
+            username,
             token.picture || null
           );
         } catch (error) {

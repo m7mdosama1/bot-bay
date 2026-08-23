@@ -28,10 +28,12 @@ export default async function DashboardPage() {
 
   const accessToken = session.accessToken as string;
   let guilds: DiscordGuild[] = [];
+  let guildsError: string | null = null;
   try {
     guilds = await fetchUserGuilds(accessToken);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to fetch guilds:", error);
+    guildsError = error.message || "Failed to fetch guilds from Discord";
   }
 
   try {
@@ -92,12 +94,20 @@ export default async function DashboardPage() {
 
         {managedGuilds.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-text-dim mb-4">
-              You don't have any servers you can manage.
-            </p>
-            <p className="text-sm text-text-dim">
-              Make sure you have the Administrator permission in your server.
-            </p>
+            {guildsError ? (
+              <p className="text-text-dim mb-4">
+                {guildsError}
+              </p>
+            ) : (
+              <>
+                <p className="text-text-dim mb-4">
+                  You don't have any servers you can manage.
+                </p>
+                <p className="text-sm text-text-dim">
+                  Make sure you have the Administrator permission in your server.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

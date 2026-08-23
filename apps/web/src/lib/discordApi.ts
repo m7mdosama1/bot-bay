@@ -36,7 +36,8 @@ export async function fetchUserGuilds(accessToken: string): Promise<DiscordGuild
   });
 
   if (!response.ok) {
-    throw new Error("Failed to fetch guilds");
+    const errorText = await response.text().catch(() => "Unknown error");
+    throw new Error(`Failed to fetch guilds: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
   return response.json();

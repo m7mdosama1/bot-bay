@@ -60,6 +60,23 @@ export async function upsertUser(id: string, username: string, avatar: string | 
   return result.rows[0];
 }
 
+export async function markAdminIfAllowlisted(id: string, username: string, avatar: string | null) {
+  const ADMIN_ALLOWLIST = process.env.ADMIN_ALLOWLIST?.split(",").map(s => s.trim()).filter(Boolean) || [];
+  const isAdmin = ADMIN_ALLOWLIST.includes(id);
+
+  const result = await db.query(
+    `INSERT INTO users (id, username, avatar, is_admin, created_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (id) DO UPDATE SET
+       username = $2,
+       avatar = $3,
+       is_admin = (users.is_admin OR $4)
+     RETURNING id, username, avatar, is_admin as "isAdmin", created_at as "createdAt"`,
+    [id, username, avatar, isAdmin]
+  );
+  return result.rows[0];
+}
+
 export async function getActiveBots() {
   const result = await db.query(
     "SELECT id, slug, name, tagline, description, features, client_id as \"clientId\", permissions, icon_url as \"iconUrl\", color_accent as \"colorAccent\", is_active as \"isActive\", created_at as \"createdAt\" FROM bots WHERE is_active = true ORDER BY created_at DESC"
