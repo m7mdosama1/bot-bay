@@ -40,6 +40,25 @@ export default async function AdminPanelPage({
 
   const userId = session.user.id;
 
+  if (!userId) {
+    return (
+      <div className="min-h-screen bg-bg-void text-white">
+        <SiteHeader />
+        <main className="pt-32 container mx-auto px-6 text-center">
+          <h1 className="font-display text-4xl font-bold gradient-text mb-4">
+            Session Error
+          </h1>
+          <p className="text-text-dim mb-6">
+            Your session is invalid. Please log in again.
+          </p>
+          <Link href="/login" className="btn btn-primary btn-lg rounded-full font-mono">
+            Login with Discord
+          </Link>
+        </main>
+      </div>
+    );
+  }
+
   // Check allowlist
   if (!isAdminAllowlisted(userId)) {
     return (
