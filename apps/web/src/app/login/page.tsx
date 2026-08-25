@@ -3,8 +3,21 @@
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const error = searchParams?.get("error");
+  const errorMessage = error === "OAuthCallback"
+    ? "OAuth callback failed. Please try again."
+    : error === "OAuthAccountNotLinked"
+    ? "Discord account not linked. Please try again."
+    : error === "AccessDenied"
+    ? "Access denied. Please try again."
+    : error
+    ? `Login error: ${error}`
+    : null;
+
   return (
     <div className="min-h-screen bg-bg-void text-text">
       <SiteHeader />
@@ -19,6 +32,12 @@ export default function LoginPage() {
               Sign in with your Discord account to access your dashboard
             </p>
           </div>
+
+          {errorMessage && (
+            <div className="bg-red-500/20 border border-red-500 rounded-xl p-3 mb-4">
+              <p className="text-red-400 text-sm font-mono">{errorMessage}</p>
+            </div>
+          )}
 
           <div className="card-bg rounded-xl p-8 space-y-6">
             <button
