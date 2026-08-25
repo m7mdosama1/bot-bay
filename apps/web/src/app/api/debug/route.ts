@@ -1,143 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
 
-const bots = [
-  {
-    slug: "verification",
-    name: "Sentinel Verify",
-    tagline: "Anti-alt & VPN verification system",
-    description: "Protect your server from alt accounts and VPN users with advanced verification including account age checks, IP reputation, and device fingerprinting.",
-    features: JSON.stringify([
-      "Discord OAuth verification flow",
-      "Anti-VPN/Proxy detection (IPQualityScore & ProxyCheck.io)",
-      "Alt account detection via account age",
-      "Device fingerprint matching",
-      "Role assignment on success",
-      "IP hashing with 30-day auto-cleanup",
-    ]),
-    clientId: process.env.BOT_VERIFICATION_CLIENT_ID || "123456789012345678",
-    permissions: "268468292673",
-    colorAccent: "#3CFF4A",
-    iconUrl: "https://cdn.discordapp.com/emojis/verify_icon.png",
-  },
-  {
-    slug: "giveaway",
-    name: "Bounty Drop",
-    tagline: "Automated giveaways with real-time countdown",
-    description: "Run engaging giveaways with live countdown embeds, automatic winner selection, and anti-entry spam protection.",
-    features: JSON.stringify([
-      "Slash commands for create/end/reroll",
-      "Real-time countdown embed",
-      "Anti-spam entry protection",
-      "Automatic winner selection",
-      "30-second poll interval",
-    ]),
-    clientId: process.env.BOT_GIVEAWAY_CLIENT_ID || "123456789012345680",
-    permissions: "8",
-    colorAccent: "#FFA500",
-    iconUrl: "https://cdn.discordapp.com/emojis/giveaway_icon.png",
-  },
-  {
-    slug: "roulette",
-    name: "Fortune Wheel",
-    tagline: "Interactive roulette with betting system",
-    description: "A fully button-based roulette game with configurable bets, currency, probabilities, daily bonuses, and detailed history tracking.",
-    features: JSON.stringify([
-      "Fully button-based UI (no slash commands for users)",
-      "Multi-select color + number betting",
-      "Modal-based bet amount entry",
-      "Configurable min/max bets and currency",
-      "Daily bonus system",
-      "Detailed history tracking",
-    ]),
-    clientId: process.env.BOT_ROULETTE_CLIENT_ID || "123456789012345682",
-    permissions: "8",
-    colorAccent: "#9D4EDD",
-    iconUrl: "https://cdn.discordapp.com/emojis/roulette_icon.png",
-  },
-  {
-    slug: "admin",
-    name: "Iron Gavel",
-    tagline: "Moderation toolkit with logging",
-    description: "Comprehensive moderation bot with ban, kick, mute, warn commands, confirmation flows, and permanent moderation logs.",
-    features: JSON.stringify([
-      "Ban, kick, mute, warn commands",
-      "Confirm/Cancel confirmation flow",
-      "Ephemeral confirmation messages",
-      "Moderation log database persistence",
-      "Optional auto-moderation",
-    ]),
-    clientId: process.env.BOT_ADMIN_CLIENT_ID || "123456789012345684",
-    permissions: "8",
-    colorAccent: "#3B82F6",
-    iconUrl: "https://cdn.discordapp.com/emojis/admin_icon.png",
-  },
-  {
-    slug: "welcome",
-    name: "Threshold",
-    tagline: "Welcome channels with rule acceptance",
-    description: "Creates a private welcome channel for each new member with customizable rules and an agreement button.",
-    features: JSON.stringify([
-      "Private welcome channel per member",
-      "Customizable welcome message",
-      "Rule agreement button",
-      "Auto role assignment",
-      "Channel cleanup after timeout",
-    ]),
-    clientId: process.env.BOT_WELCOME_CLIENT_ID || "123456789012345686",
-    permissions: "8",
-    colorAccent: "#06D6A0",
-    iconUrl: "https://cdn.discordapp.com/emojis/welcome_icon.png",
-  },
-  {
-    slug: "ticket",
-    name: "Deskline",
-    tagline: "Persistent ticket system with transcripts",
-    description: "Full ticket system with claim/close buttons, permanent transcript archiving in the database.",
-    features: JSON.stringify([
-      "One-click ticket opening",
-      "Claim and Close buttons (always visible)",
-      "Permanent transcript storage in database",
-      "Log channel file export",
-      "Channel deletion after close",
-      "Dashboard ticket archive",
-    ]),
-    clientId: process.env.BOT_TICKET_CLIENT_ID || "123456789012345688",
-    permissions: "8",
-    colorAccent: "#F2A93B",
-    iconUrl: "https://cdn.discordapp.com/emojis/ticket_icon.png",
-  },
-];
-
 export async function GET() {
   try {
-    const result = await db.query("SELECT COUNT(*) FROM bots");
-    const count = parseInt(result.rows[0].count, 10);
+    const botsResult = await db.query("SELECT COUNT(*) FROM bots");
+    const usersResult = await db.query("SELECT id, username, is_admin FROM users");
 
-    if (count === 0) {
-      for (const bot of bots) {
-        await db.query(
-          `INSERT INTO bots (id, slug, name, tagline, description, features, client_id, permissions, icon_url, color_accent, is_active, created_at)
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW())
-           ON CONFLICT (slug) DO UPDATE SET
-             name = $2, tagline = $3, description = $4, features = $5, client_id = $6, permissions = $7, icon_url = $8, color_accent = $9, is_active = true`,
-          [
-            bot.slug,
-            bot.name,
-            bot.tagline,
-            bot.description,
-            bot.features,
-            bot.clientId,
-            bot.permissions,
-            bot.iconUrl,
-            bot.colorAccent,
-          ]
-        );
-      }
-      return NextResponse.json({ message: "Bots seeded", count: bots.length });
-    }
-
-    return NextResponse.json({ count });
+    return NextResponse.json({
+      bots: parseInt(botsResult.rows[0].count, 10),
+      users: usersResult.rows,
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
