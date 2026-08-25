@@ -1,13 +1,5 @@
 {
   "version": 2,
-  "build": {
-    "env": {
-      "NEXTAUTH_URL": "https://bot-bay-kappa.vercel.app"
-    }
-  },
-  "env": {
-    "NEXTAUTH_URL": "https://bot-bay-kappa.vercel.app"
-  },
   "github": {
     "silent": true
   }
