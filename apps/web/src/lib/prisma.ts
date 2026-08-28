@@ -314,3 +314,107 @@ export async function getTicketsByGuild(guildId: string, statusFilter?: string) 
   const result = await db.query(query, params);
   return result.rows;
 }
+
+// ─── Welcome Config ─────────────────────────────────────────────
+
+export async function getWelcomeConfig(guildId: string) {
+  const result = await db.query(
+    'SELECT * FROM welcome_configs WHERE guild_id = $1',
+    [guildId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function upsertWelcomeConfig(guildId: string, data: {
+  channelId?: string; roleId?: string; messageText?: string;
+  embedColor?: string; showAvatar?: boolean; showBanner?: boolean;
+}) {
+  const result = await db.query(
+    `INSERT INTO welcome_configs (id, guild_id, channel_id, role_id, message_text, embed_color, show_avatar, show_banner)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (guild_id) DO UPDATE SET
+       channel_id = COALESCE($2, welcome_configs.channel_id),
+       role_id = COALESCE($3, welcome_configs.role_id),
+       message_text = COALESCE($4, welcome_configs.message_text),
+       embed_color = COALESCE($5, welcome_configs.embed_color),
+       show_avatar = COALESCE($6, welcome_configs.show_avatar),
+       show_banner = COALESCE($7, welcome_configs.show_banner)
+     RETURNING *`,
+    [guildId, data.channelId || null, data.roleId || null, data.messageText || 'Welcome!', data.embedColor || '#3CFF4A', data.showAvatar ?? true, data.showBanner ?? true]
+  );
+  return result.rows[0];
+}
+
+// ─── Ticket Config ──────────────────────────────────────────────
+
+export async function getTicketConfig(guildId: string) {
+  const result = await db.query(
+    'SELECT * FROM ticket_configs WHERE guild_id = $1',
+    [guildId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function upsertTicketConfig(guildId: string, data: {
+  channelId?: string; categoryId?: string; logChannelId?: string;
+}) {
+  const result = await db.query(
+    `INSERT INTO ticket_configs (id, guild_id, channel_id, category_id, log_channel_id)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4)
+     ON CONFLICT (guild_id) DO UPDATE SET
+       channel_id = COALESCE($2, ticket_configs.channel_id),
+       category_id = COALESCE($3, ticket_configs.category_id),
+       log_channel_id = COALESCE($4, ticket_configs.log_channel_id)
+     RETURNING *`,
+    [guildId, data.channelId || null, data.categoryId || null, data.logChannelId || null]
+  );
+  return result.rows[0];
+}
+
+// ─── Verification Config ────────────────────────────────────────
+
+export async function getVerificationConfig(guildId: string) {
+  const result = await db.query(
+    'SELECT * FROM verification_configs WHERE guild_id = $1',
+    [guildId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function upsertVerificationConfig(guildId: string, data: {
+  verifyChannelId?: string; unverifiedRoleId?: string; verifiedRoleId?: string;
+  vpnCheckEnabled?: boolean; altCheckEnabled?: boolean;
+}) {
+  const result = await db.query(
+    `INSERT INTO verification_configs (id, guild_id, verify_channel_id, unverified_role_id, verified_role_id, vpn_check_enabled, alt_check_enabled)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
+     ON CONFLICT (guild_id) DO UPDATE SET
+       verify_channel_id = COALESCE($2, verification_configs.verify_channel_id),
+       unverified_role_id = COALESCE($3, verification_configs.unverified_role_id),
+       verified_role_id = COALESCE($4, verification_configs.verified_role_id),
+       vpn_check_enabled = COALESCE($5, verification_configs.vpn_check_enabled),
+       alt_check_enabled = COALESCE($6, verification_configs.alt_check_enabled)
+     RETURNING *`,
+    [guildId, data.verifyChannelId || null, data.unverifiedRoleId || null, data.verifiedRoleId || null, data.vpnCheckEnabled ?? true, data.altCheckEnabled ?? true]
+  );
+  return result.rows[0];
+}
+
+// ─── Ticket Stats ───────────────────────────────────────────────
+
+export async function getTicketStats(guildId: string) {
+  const result = await db.query(
+    `SELECT
+       COUNT(*) as total,
+       COUNT(*) FILTER (WHERE status = 'open') as open,
+       COUNT(*) FILTER (WHERE status = 'closed') as closed
+     FROM tickets WHERE guild_id = $1`,
+    [guildId]
+  );
+  const row = result.rows[0];
+  return {
+    total: parseInt(row.total, 10),
+    open: parseInt(row.open, 10),
+    closed: parseInt(row.closed, 10),
+  };
+}

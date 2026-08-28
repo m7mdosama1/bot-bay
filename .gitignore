@@ -42,7 +42,12 @@ prisma/*.db
 prisma/*.db-journal
 *.db
 *.db-journal
- prisma/generated/
+prisma/generated/
+src/generated/
+apps/web/src/generated/
+*.node
+*.dll
+
 
 # Environment
 .env

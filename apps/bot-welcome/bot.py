@@ -1,6 +1,6 @@
 import os
+import sys
 import asyncio
-from datetime import datetime
 from dotenv import load_dotenv
 import discord
 from discord import app_commands
@@ -8,9 +8,8 @@ from discord.ext import commands
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text, select
+from sqlalchemy import select
 
-import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "packages", "db"))
 from shared_models import WelcomeConfig
 
@@ -31,82 +30,41 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"Threshold is online as {bot.user}")
+    print(f"Threshold (Welcome) is online as {bot.user}")
     await bot.tree.sync()
 
 
-@bot.tree.command(name="welcome-setup", description="Set up welcome system")
-@app_commands.checks.has_permissions(administrator=True)
-async def welcome_setup(
-    interaction: discord.Interaction,
-    category: discord.CategoryChannel,
-    message: str = "Welcome to the server! Please read the rules and click below to verify.",
-    delete_after: int = 5,
-):
-    async with AsyncSessionLocal() as session:
-        await session.execute(
-            text("""
-                INSERT INTO welcome_configs (id, guild_id, category_id, message_text, delete_after_min)
-                VALUES (gen_random_uuid()::varchar, :guild_id, :category_id, :message_text, :delete_after_min)
-                ON CONFLICT (guild_id) DO UPDATE SET
-                    category_id = EXCLUDED.category_id,
-                    message_text = EXCLUDED.message_text,
-                    delete_after_min = EXCLUDED.delete_after_min
-            """),
-            {
-                "guild_id": str(interaction.guild_id),
-                "category_id": str(category.id),
-                "message_text": message,
-                "delete_after_min": delete_after,
-            }
-        )
-        await session.commit()
-
-    embed = discord.Embed(
-        title="✅ Welcome System Configured",
-        description=f"Welcome category: {category.mention}\nMessage will auto-delete after {delete_after} minutes.",
-        color=0x06D6A0,
-    )
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-
-class AgreeView(discord.ui.View):
-    def __init__(self, config: dict, member: discord.Member):
-        super().__init__(timeout=120)
-        self.config = config
-        self.member = member
+class WelcomeView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
 
     @discord.ui.button(
-        label="✅ I Agree to the Rules",
+        label="Accept Rules | الموافقة على القوانين",
         style=discord.ButtonStyle.success,
-        custom_id="welcome_agree",
+        emoji="📜",
+        custom_id="welcome_accept_rules",
     )
-    async def agree(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.member.id:
-            await interaction.response.send_message(
-                "Only the server member who joined can accept the rules.", ephemeral=True
+    async def accept_rules(self, interaction: discord.Interaction, button: discord.ui.Button):
+        member = interaction.user
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(WelcomeConfig).where(WelcomeConfig.guild_id == str(interaction.guild_id))
             )
-            return
-
-        verified_role = interaction.guild.get_role(int(os.getenv("VERIFIED_ROLE_ID", "0")) or 0)
-        if verified_role:
+            config = result.scalar_one_or_none()
+            if not config or not config.role_id:
+                await interaction.response.send_message("❌ لم يتم إعداد رول التحقق لهذا السيرفر بعد.", ephemeral=True)
+                return
+            
+            role = interaction.guild.get_role(int(config.role_id))
+            if not role:
+                await interaction.response.send_message("❌ الرول المحدد غير موجود في السيرفر.", ephemeral=True)
+                return
+            
             try:
-                await self.member.add_roles(verified_role)
+                await member.add_roles(role)
+                await interaction.response.send_message("✅ تم قبول القوانين بنجاح! مرحباً بك في السيرفر.", ephemeral=True)
             except discord.Forbidden:
-                pass
-
-        await interaction.response.send_message(
-            "✅ You now have access to the server! Welcome!", ephemeral=True
-        )
-
-        channel = interaction.channel
-        if channel:
-            await channel.delete(reason=f"Member {self.member.display_name} passed verification")
-
-    async def on_timeout(self):
-        channel = self.member._welcome_channel if hasattr(self.member, "_welcome_channel") else None
-        if channel:
-            await channel.delete(reason="Welcome channel timed out")
+                await interaction.response.send_message("❌ لا أملك الصلاحيات الكافية لإعطائك الرول.", ephemeral=True)
 
 
 @bot.event
@@ -116,55 +74,78 @@ async def on_member_join(member: discord.Member):
             select(WelcomeConfig).where(WelcomeConfig.guild_id == str(member.guild.id))
         )
         config = result.scalar_one_or_none()
-
-        if not config:
+        if not config or not config.channel_id:
             return
-
-        category_id = config.category_id
-        category = member.guild.get_channel(int(category_id))
-        if not category or not isinstance(category, discord.CategoryChannel):
+        
+        channel = member.guild.get_channel(int(config.channel_id))
+        if not channel:
             return
-
-        overwrites = {
-            member.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-            member: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-            member.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-        }
-
-        channel_name = f"welcome-{member.name.lower().replace(' ', '-')}"
-        channel = await member.guild.create_text_channel(
-            channel_name,
-            category=category,
-            overwrites=overwrites,
-            topic=f"Welcome channel for {member.display_name}",
-        )
-
-        member._welcome_channel = channel
-
+        
+        # Build welcome embed
+        embed_color = int(config.embed_color.lstrip('#'), 16) if config.embed_color else 0x3CFF4A
         embed = discord.Embed(
-            title=f"Welcome, {member.display_name}!",
-            description=config["message_text"],
-            color=0x06D6A0,
+            title=f"🎉 مرحباً بك في السيرفر!",
+            description=config.message_text.replace("{member}", member.mention).replace("{user}", member.mention) if config.message_text else f"مرحباً بك {member.mention} في سيرفرنا!",
+            color=embed_color
         )
+        if config.show_avatar:
+            embed.set_thumbnail(url=member.display_avatar.url)
+        
+        # Banner image
+        if config.show_banner and member.guild.banner:
+            embed.set_image(url=member.guild.banner.url)
+        elif config.image_url:
+            embed.set_image(url=config.image_url)
+            
+        embed.add_field(name="العضو رقم:", value=str(member.guild.member_count), inline=True)
+        embed.set_footer(text="اضغط على الزر أدناه للموافقة على القوانين ودخول السيرفر")
+        
+        view = WelcomeView()
+        await channel.send(content=member.mention, embed=embed, view=view)
 
-        if config.get("image_url"):
-            embed.set_image(url=config["image_url"])
 
-        embed.set_footer(text="Click the button below to verify you've read the rules")
+@bot.tree.command(name="welcome-setup", description="Set up welcome channel and auto-role")
+@app_commands.checks.has_permissions(administrator=True)
+async def welcome_setup(
+    interaction: discord.Interaction,
+    channel: discord.TextChannel,
+    role: discord.Role,
+    message: str = "مرحباً {member} في السيرفر! الرجاء قراءة القوانين والضغط على الزر بالأسفل للتحقق.",
+):
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(WelcomeConfig).where(WelcomeConfig.guild_id == str(interaction.guild_id))
+        )
+        config = result.scalar_one_or_none()
+        if not config:
+            config = WelcomeConfig(
+                guild_id=str(interaction.guild_id),
+                channel_id=str(channel.id),
+                role_id=str(role.id),
+                message_text=message,
+                embed_color="#3CFF4A",
+                show_avatar=True,
+                show_banner=True
+            )
+            session.add(config)
+        else:
+            config.channel_id = str(channel.id)
+            config.role_id = str(role.id)
+            config.message_text = message
+        
+        await session.commit()
+    
+    embed = discord.Embed(
+        title="✅ تم إعداد نظام الترحيب",
+        description=f"قناة الترحيب: {channel.mention}\nالرول المعطى: {role.mention}",
+        color=0x3CFF4A
+    )
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
-        view = AgreeView(config, member)
-        await channel.send(embed=embed, view=view)
 
-        delete_after = config.get("delete_after_min", 5) * 60
-        asyncio.ensure_future(schedule_cleanup(channel, delete_after))
-
-
-async def schedule_cleanup(channel: discord.TextChannel, delay: int):
-    await asyncio.sleep(delay)
-    try:
-        await channel.delete(reason="Welcome channel auto-deleted")
-    except discord.NotFound:
-        pass
+@bot.event
+async def setup_hook():
+    bot.add_view(WelcomeView())
 
 
 if __name__ == "__main__":
@@ -172,3 +153,4 @@ if __name__ == "__main__":
     if not token:
         raise ValueError("DISCORD_TOKEN not found in environment")
     bot.run(token)
+

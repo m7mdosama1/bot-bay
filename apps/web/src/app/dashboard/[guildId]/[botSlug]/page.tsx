@@ -1,4 +1,10 @@
-import { getGuildById } from "@/lib/prisma";
+import {
+  getGuildById,
+  getWelcomeConfig,
+  getTicketConfig,
+  getVerificationConfig,
+  getTicketStats,
+} from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
@@ -7,6 +13,9 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import { GiveawaySettings } from "@/components/dashboard/GiveawaySettings";
 import { RouletteSettings } from "@/components/dashboard/RouletteSettings";
 import { AdminLogsView } from "@/components/dashboard/AdminLogsView";
+import { WelcomeSettings } from "@/components/dashboard/WelcomeSettings";
+import { TicketSettings } from "@/components/dashboard/TicketSettings";
+import { VerificationSettings } from "@/components/dashboard/VerificationSettings";
 
 export default async function BotSettingsPage({
   params,
@@ -51,6 +60,27 @@ export default async function BotSettingsPage({
     notFound();
   }
 
+  // Fetch config data based on bot type
+  let welcomeConfig = null;
+  let ticketConfig = null;
+  let verificationConfig = null;
+  let ticketStats = { open: 0, closed: 0, total: 0 };
+
+  try {
+    if (botSlug === "welcome") {
+      welcomeConfig = await getWelcomeConfig(guildId);
+    } else if (botSlug === "ticket") {
+      [ticketConfig, ticketStats] = await Promise.all([
+        getTicketConfig(guildId),
+        getTicketStats(guildId),
+      ]);
+    } else if (botSlug === "verification") {
+      verificationConfig = await getVerificationConfig(guildId);
+    }
+  } catch (error) {
+    console.error("Failed to fetch bot config:", error);
+  }
+
   return (
     <div className="min-h-screen bg-bg-void text-text">
       <SiteHeader />
@@ -75,41 +105,14 @@ export default async function BotSettingsPage({
           {botSlug === "giveaway" && <GiveawaySettings guild={guild} />}
           {botSlug === "roulette" && <RouletteSettings guild={guild} />}
           {botSlug === "admin" && <AdminLogsView guild={guild} />}
+          {botSlug === "welcome" && (
+            <WelcomeSettings guildId={guildId} config={welcomeConfig} />
+          )}
           {botSlug === "ticket" && (
-            <div className="text-center py-8">
-              <h3 className="font-display text-xl font-semibold text-white mb-4">
-                Ticket Bot
-              </h3>
-              <p className="text-text-dim mb-4">
-                Use <code className="font-mono text-amber-signal">/ticket-setup</code> in Discord to configure the ticket panel.
-              </p>
-              <Link
-                href={`/dashboard/${guildId}/tickets`}
-                className="btn btn-primary btn-lg rounded-full font-mono text-sm"
-              >
-                View Ticket Archive
-              </Link>
-            </div>
+            <TicketSettings guildId={guildId} config={ticketConfig} stats={ticketStats} />
           )}
           {botSlug === "verification" && (
-            <div className="text-center py-8">
-              <h3 className="font-display text-xl font-semibold text-white mb-4">
-                Verification Bot
-              </h3>
-              <p className="text-text-dim">
-                Use <code className="font-mono text-amber-signal">/verify-setup</code> in Discord to configure verification.
-              </p>
-            </div>
-          )}
-          {botSlug === "welcome" && (
-            <div className="text-center py-8">
-              <h3 className="font-display text-xl font-semibold text-white mb-4">
-                Welcome Bot
-              </h3>
-              <p className="text-text-dim">
-                Use <code className="font-mono text-amber-signal">/welcome-setup</code> in Discord to configure welcome channels.
-              </p>
-            </div>
+            <VerificationSettings guildId={guildId} config={verificationConfig} />
           )}
         </div>
       </main>

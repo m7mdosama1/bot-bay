@@ -67,6 +67,7 @@ class Giveaway(Base):
     status: Mapped[str] = mapped_column(String, default="active")
     created_by: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    participants: Mapped[str] = mapped_column(Text, default="")
 
 
 class RouletteConfig(Base):
@@ -99,6 +100,7 @@ class VerificationConfig(Base):
     verified_role_id: Mapped[str] = mapped_column(String)
     vpn_check_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     alt_check_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    panel_message_id: Mapped[str] = mapped_column(String, nullable=True)
 
 
 class VerificationAttempt(Base):
@@ -116,10 +118,26 @@ class WelcomeConfig(Base):
     __tablename__ = "welcome_configs"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_id)
     guild_id: Mapped[str] = mapped_column(String, unique=True)
-    category_id: Mapped[str] = mapped_column(String)
-    message_text: Mapped[str] = mapped_column(String)
+    channel_id: Mapped[str] = mapped_column(String, nullable=True)
+    role_id: Mapped[str] = mapped_column(String, nullable=True)
+    message_text: Mapped[str] = mapped_column(String, default="Welcome to the server!")
+    embed_color: Mapped[str] = mapped_column(String, default="#3CFF4A")
+    show_avatar: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_banner: Mapped[bool] = mapped_column(Boolean, default=True)
+    category_id: Mapped[str] = mapped_column(String, nullable=True)
     image_url: Mapped[str] = mapped_column(String, nullable=True)
     delete_after_min: Mapped[int] = mapped_column(Integer, default=5)
+
+
+class TicketConfig(Base):
+    __tablename__ = "ticket_configs"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_id)
+    guild_id: Mapped[str] = mapped_column(String, unique=True)
+    channel_id: Mapped[str] = mapped_column(String, nullable=True)
+    category_id: Mapped[str] = mapped_column(String, nullable=True)
+    log_channel_id: Mapped[str] = mapped_column(String, nullable=True)
+    panel_message_id: Mapped[str] = mapped_column(String, nullable=True)
+
 
 
 class Ticket(Base):

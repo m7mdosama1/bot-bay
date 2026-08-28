@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncio
 import random as random_module
 from datetime import datetime, timedelta
@@ -9,9 +10,8 @@ from discord.ext import commands, tasks
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, insert, update
+from sqlalchemy import select, update
 
-import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "packages", "db"))
 from shared_models import Giveaway
 
@@ -31,9 +31,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"Bounty Drop is online as {bot.user}")
+    print(f"Bounty Drop (Giveaway) is online as {bot.user}")
     await bot.tree.sync()
-    check_giveaways.start()
+    if not check_giveaways.is_running():
+        check_giveaways.start()
 
 
 def parse_duration(duration: str) -> int:
@@ -53,28 +54,63 @@ def parse_duration(duration: str) -> int:
 
 def create_giveaway_embed(prize: str, winners: int, ends_at: datetime) -> discord.Embed:
     embed = discord.Embed(
-        title="🎁 GIVEAWAY",
-        description=f"**Prize:** {prize}\n**Winners:** {winners}\n**Ends:** <t:{int(ends_at.timestamp())}:R>",
+        title="🎁 GIVEAWAY | مسابقة جديدة",
+        description=f"**الهدية:** {prize}\n**عدد الفائزين:** {winners}\n**ينتهي:** <t:{int(ends_at.timestamp())}:R>",
         color=0xFFA500,
     )
-    embed.set_footer(text="React with 🎉 to enter!")
+    embed.set_footer(text="عدد المشاركين الحالي: 0 | اضغط على الزر للدخول/الخروج")
     return embed
 
 
 class GiveawayView(discord.ui.View):
-    def __init__(self, giveaway_id: str, prize: str):
+    def __init__(self):
         super().__init__(timeout=None)
-        self.giveaway_id = giveaway_id
-        self.prize = prize
 
     @discord.ui.button(
-        label="🎉 Join Giveaway",
+        label="Join Giveaway | دخول",
         style=discord.ButtonStyle.success,
         emoji="🎉",
         custom_id="giveaway_join",
     )
     async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("✅ You entered the giveaway!", ephemeral=True)
+        message_id = str(interaction.message.id)
+        user_id = str(interaction.user.id)
+        
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Giveaway).where(Giveaway.message_id == message_id)
+            )
+            giveaway = result.scalar_one_or_none()
+            if not giveaway:
+                await interaction.response.send_message("❌ لم يتم العثور على هذه المسابقة في قاعدة البيانات.", ephemeral=True)
+                return
+            
+            if giveaway.status != "active":
+                await interaction.response.send_message("❌ هذه المسابقة انتهت بالفعل.", ephemeral=True)
+                return
+            
+            participants_list = giveaway.participants.split(",") if giveaway.participants else []
+            # filter empty values
+            participants_list = [p for p in participants_list if p.strip()]
+
+            if user_id in participants_list:
+                participants_list.remove(user_id)
+                giveaway.participants = ",".join(participants_list)
+                await session.commit()
+                await interaction.response.send_message("❌ لقد خرجت من المسابقة.", ephemeral=True)
+            else:
+                participants_list.append(user_id)
+                giveaway.participants = ",".join(participants_list)
+                await session.commit()
+                await interaction.response.send_message("✅ لقد دخلت المسابقة بنجاح!", ephemeral=True)
+                
+            count = len(participants_list)
+            embed = interaction.message.embeds[0]
+            embed.set_footer(text=f"عدد المشاركين الحالي: {count} | اضغط على الزر للدخول/الخروج")
+            
+            view = GiveawayView()
+            view.children[0].label = f"Join Giveaway | دخول ({count})"
+            await interaction.message.edit(embed=embed, view=view)
 
 
 @bot.tree.command(name="giveaway_create", description="Create a new giveaway")
@@ -93,33 +129,32 @@ async def giveaway_create(
 
     ends_at = datetime.utcnow() + timedelta(seconds=duration_seconds)
 
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            insert(Giveaway).values(
-                guild_id=str(interaction.guild_id),
-                channel_id=str(interaction.channel_id),
-                prize=prize,
-                winners_count=winners,
-                ends_at=ends_at,
-                status="active",
-                created_by=str(interaction.user.id),
-            )
-        )
-        await session.commit()
-        giveaway_id = result.lastrowid
-
-    embed = create_giveaway_embed(prize, winners, ends_at)
-    view = GiveawayView(str(giveaway_id), prize)
-    msg = await interaction.response.send_message(embed=embed, view=view)
-    message = await interaction.interaction.original_response()
+    # Defer response first since we are sending embed and modifying
+    await interaction.response.defer(ephemeral=True)
 
     async with AsyncSessionLocal() as session:
-        await session.execute(
-            update(Giveaway)
-            .where(Giveaway.id == str(giveaway_id))
-            .values(message_id=str(message.id))
+        new_g = Giveaway(
+            guild_id=str(interaction.guild_id),
+            channel_id=str(interaction.channel_id),
+            prize=prize,
+            winners_count=winners,
+            ends_at=ends_at,
+            status="active",
+            created_by=str(interaction.user.id),
+            participants=""
         )
+        session.add(new_g)
         await session.commit()
+        giveaway_id = new_g.id
+
+        embed = create_giveaway_embed(prize, winners, ends_at)
+        view = GiveawayView()
+        msg = await interaction.channel.send(embed=embed, view=view)
+        
+        new_g.message_id = str(msg.id)
+        await session.commit()
+
+    await interaction.followup.send(f"✅ تم بدء المسابقة بنجاح في هذه القناة!", ephemeral=True)
 
 
 @bot.tree.command(name="giveaway_end", description="End a giveaway early")
@@ -132,21 +167,18 @@ async def giveaway_end(interaction: discord.Interaction, message_id: str):
                 Giveaway.message_id == message_id,
             )
         )
-        giveaway = result.fetchone()
+        giveaway = result.scalar_one_or_none()
 
         if not giveaway:
             await interaction.response.send_message("Giveaway not found.", ephemeral=True)
             return
 
-        await session.execute(
-            update(Giveaway)
-            .where(Giveaway.id == giveaway.id)
-            .values(status="ended")
-        )
+        giveaway.status = "ended"
         await session.commit()
+        giveaway_id = giveaway.id
 
     await interaction.response.send_message(f"Giveaway ended. Drawing winners...", ephemeral=True)
-    await draw_winners(giveaway.id)
+    await draw_winners(giveaway_id)
 
 
 async def draw_winners(giveaway_id):
@@ -154,7 +186,7 @@ async def draw_winners(giveaway_id):
         result = await session.execute(
             select(Giveaway).where(Giveaway.id == str(giveaway_id))
         )
-        giveaway = result.fetchone()
+        giveaway = result.scalar_one_or_none()
 
         if not giveaway or not giveaway.message_id:
             return
@@ -166,47 +198,39 @@ async def draw_winners(giveaway_id):
         try:
             message = await channel.fetch_message(int(giveaway.message_id))
         except discord.NotFound:
-            await session.execute(
-                update(Giveaway)
-                .where(Giveaway.id == str(giveaway_id))
-                .values(status="cancelled")
-            )
+            giveaway.status = "cancelled"
             await session.commit()
             return
 
-        reaction = None
-        for r in message.reactions:
-            if str(r.emoji) == "🎉":
-                reaction = r
-                break
+        participants_list = giveaway.participants.split(",") if giveaway.participants else []
+        pool = [p for p in participants_list if p.strip()]
+        
+        winners_ids = []
+        if pool:
+            winners_ids = random_module.sample(pool, min(giveaway.winners_count, len(pool)))
 
-        if reaction:
-            users = [u for u in await reaction.users().flatten() if not u.bot]
-            pool = [u for u in users]
-            winners = pool[:min(giveaway.winners_count, len(pool))]
-
-            embed = discord.Embed(
-                title="🎉 GIVEAWAY ENDED",
-                description=f"**Prize:** {giveaway.prize}\n**Winners:** {', '.join([str(w) for w in winners]) or 'No valid entries'}",
-                color=0xFFA500,
-            )
-            await message.edit(embed=embed, view=None)
-
-            for w in winners:
-                try:
-                    await w.send(f"🎉 Congratulations! You won: {giveaway.prize}")
-                except discord.Forbidden:
-                    pass
-
-        await session.execute(
-            update(Giveaway)
-            .where(Giveaway.id == str(giveaway_id))
-            .values(status="completed")
+        winners_mentions = [f"<@{uid}>" for uid in winners_ids]
+        
+        embed = discord.Embed(
+            title="🎉 GIVEAWAY ENDED | انتهت المسابقة",
+            description=f"**الهدية:** {giveaway.prize}\n**الفائزين:** {', '.join(winners_mentions) or 'لا يوجد مشاركين صالحين'}",
+            color=0xFFA500,
         )
+        await message.edit(embed=embed, view=None)
+
+        for uid in winners_ids:
+            try:
+                user = await bot.fetch_user(int(uid))
+                if user:
+                    await user.send(f"🎉 مبارك! لقد فزت بـ: {giveaway.prize} في سيرفر {message.guild.name}!")
+            except Exception:
+                pass
+
+        giveaway.status = "completed"
         await session.commit()
 
 
-@tasks.loop(seconds=30)
+@tasks.loop(seconds=10)
 async def check_giveaways():
     async with AsyncSessionLocal() as session:
         now = datetime.utcnow()
@@ -216,16 +240,17 @@ async def check_giveaways():
                 Giveaway.ends_at <= now,
             )
         )
-        ended = result.fetchall()
+        ended = result.scalars().all()
 
         for g in ended:
-            await session.execute(
-                update(Giveaway)
-                .where(Giveaway.id == str(g.id))
-                .values(status="ended")
-            )
+            g.status = "ended"
             await session.commit()
             await draw_winners(g.id)
+
+
+@bot.event
+async def setup_hook():
+    bot.add_view(GiveawayView())
 
 
 if __name__ == "__main__":

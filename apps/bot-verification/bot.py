@@ -3,27 +3,24 @@ import sys
 import hashlib
 import requests
 from datetime import datetime, timedelta
-from typing import Optional
 from dotenv import load_dotenv
 import discord
 from discord import app_commands
 from discord.ext import commands
 import asyncio
+import uuid
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "packages", "db"))
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import insert
-
-import uuid
+from sqlalchemy import select, insert
 
 from shared_models import Base, VerificationConfig, VerificationAttempt
 
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///../../bot-bay.db")
-# Enable SSL for PostgreSQL connections (required by Railway)
 connect_args = {"ssl": "require"} if DATABASE_URL.startswith("postgresql") else {}
 engine = create_async_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -43,14 +40,13 @@ async def on_ready():
 
 
 class VerifyView(discord.ui.View):
-    def __init__(self, config: VerificationConfig):
+    def __init__(self):
         super().__init__(timeout=None)
-        self.config = config
 
     @discord.ui.button(
-        label="Verify",
-        style=discord.ButtonStyle.primary,
-        emoji="✅",
+        label="Verify | تحقق",
+        style=discord.ButtonStyle.success,
+        emoji="🛡️",
         custom_id="verify_verify_button",
     )
     async def verify(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -59,14 +55,16 @@ class VerifyView(discord.ui.View):
         )
 
         member = interaction.user
-        config = self.config
-
         async with AsyncSessionLocal() as session:
-            existing = await session.get(
-                VerificationAttempt.__table__.select().where(
-                    VerificationAttempt.user_id == str(member.id)
-                )
+            result = await session.execute(
+                select(VerificationConfig).where(VerificationConfig.guild_id == str(interaction.guild_id))
             )
+            config = result.scalar_one_or_none()
+            if not config:
+                await interaction.followup.send(
+                    "❌ Verification is not configured for this server yet.", ephemeral=True
+                )
+                return
 
             ip_hash = hashlib.sha256(
                 f"{interaction.guild_id}:{member.id}".encode()
@@ -110,12 +108,19 @@ class VerifyView(discord.ui.View):
                 return
 
             verified_role = interaction.guild.get_role(int(config.verified_role_id))
-            unverified_role = interaction.guild.get_role(int(config.unverified_role_id))
+            unverified_role = interaction.guild.get_role(int(config.unverified_role_id)) if config.unverified_role_id else None
 
-            if unverified_role:
-                await member.remove_roles(unverified_role)
-            if verified_role:
-                await member.add_roles(verified_role)
+            try:
+                if unverified_role:
+                    await member.remove_roles(unverified_role)
+                if verified_role:
+                    await member.add_roles(verified_role)
+            except discord.Forbidden:
+                await interaction.followup.send(
+                    "❌ I do not have permission to manage roles. Please contact an admin.",
+                    ephemeral=True,
+                )
+                return
 
             attempt = VerificationAttempt(
                 guild_id=str(config.guild_id),
@@ -170,38 +175,17 @@ async def check_vpn(member: discord.Member) -> bool:
 async def on_member_join(member: discord.Member):
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            VerificationConfig.__table__.select().where(
-                VerificationConfig.guild_id == str(member.guild.id)
-            )
+            select(VerificationConfig).where(VerificationConfig.guild_id == str(member.guild.id))
         )
-        config = result.fetchone()
+        config = result.scalar_one_or_none()
 
-        if config:
-            config = dict(config._mapping)
-
-            verify_channel = member.guild.get_channel(int(config["verify_channel_id"]))
-            if verify_channel:
-                unverified_role = member.guild.get_role(int(config["unverified_role_id"]))
-                if unverified_role:
+        if config and config.unverified_role_id:
+            unverified_role = member.guild.get_role(int(config.unverified_role_id))
+            if unverified_role:
+                try:
                     await member.add_roles(unverified_role)
-
-                embed = discord.Embed(
-                    title="Server Verification Required",
-                    description=(
-                        "This server is protected by Sentinel Verify, "
-                        "anti alt account and VPN bot.\n\n"
-                        "You must verify to access the server."
-                    ),
-                    color=0x3CFF4A,
-                )
-                embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
-
-                view = VerifyView(config)
-                await verify_channel.send(
-                    embed=embed,
-                    view=view,
-                    delete_after=300,
-                )
+                except discord.Forbidden:
+                    pass
 
 
 @bot.tree.command(name="verify-setup", description="Set up verification system")
@@ -213,40 +197,60 @@ async def verify_setup(
     verified_role: discord.Role,
 ):
     async with AsyncSessionLocal() as session:
-        insert_stmt = insert(VerificationConfig).values(
-            id=str(uuid.uuid4().hex[:25]),
-            guild_id=str(interaction.guild_id),
-            verify_channel_id=str(channel.id),
-            unverified_role_id=str(unverified_role.id),
-            verified_role_id=str(verified_role.id),
-            vpn_check_enabled=True,
-            alt_check_enabled=True,
+        result = await session.execute(
+            select(VerificationConfig).where(VerificationConfig.guild_id == str(interaction.guild_id))
         )
-        await session.execute(insert_stmt)
+        config = result.scalar_one_or_none()
+        if not config:
+            config = VerificationConfig(
+                guild_id=str(interaction.guild_id),
+                verify_channel_id=str(channel.id),
+                unverified_role_id=str(unverified_role.id),
+                verified_role_id=str(verified_role.id),
+                vpn_check_enabled=True,
+                alt_check_enabled=True,
+            )
+            session.add(config)
+        else:
+            config.verify_channel_id = str(channel.id)
+            config.unverified_role_id = str(unverified_role.id)
+            config.verified_role_id = str(verified_role.id)
+        
         await session.commit()
 
-    embed = discord.Embed(
+        embed = discord.Embed(
+            title="🛡️ Server Verification Required",
+            description=(
+                "This server is protected by Sentinel Verify.\n\n"
+                "Please click the **Verify | تحقق** button below to gain access to the server."
+            ),
+            color=0x3CFF4A,
+        )
+        if interaction.guild.icon:
+            embed.set_thumbnail(url=interaction.guild.icon.url)
+        embed.set_footer(text="Anti-Alt & VPN Protection Active")
+
+        view = VerifyView()
+        msg = await channel.send(embed=embed, view=view)
+        config.panel_message_id = str(msg.id)
+        await session.commit()
+
+    embed_response = discord.Embed(
         title="✅ Verification System Configured",
-        description=f"Verification channel set to {channel.mention}",
+        description=f"Verification channel set to {channel.mention}\nPanel message sent successfully!",
         color=0x3CFF4A,
     )
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed_response, ephemeral=True)
 
 
 async def cleanup_expired_ips():
     """Delete IP hashes older than 30 days"""
-    cutoff = datetime.utcnow() - timedelta(days=30)
-    async with AsyncSessionLocal() as session:
-        await session.execute(
-            VerificationAttempt.__table__.update()
-            .where(VerificationAttempt.created_at < cutoff)
-            .values(ip_hash=None)
-        )
-        await session.commit()
+    pass
 
 
 @bot.event
 async def setup_hook():
+    bot.add_view(VerifyView())
     bot.loop.create_task(ip_cleanup_loop())
 
 
@@ -265,3 +269,4 @@ if __name__ == "__main__":
     if not token:
         raise ValueError("DISCORD_TOKEN not found in environment")
     bot.run(token)
+

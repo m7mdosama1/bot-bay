@@ -1,5 +1,5 @@
 generator client {
-  provider      = "prisma-client"
+  provider      = "prisma-client-js"
   output        = "../src/generated/prisma"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
@@ -50,6 +50,7 @@ model Guild {
   verificationAttempts VerificationAttempt[]
   verificationConfig   VerificationConfig?
   welcomeConfig        WelcomeConfig?
+  ticketConfig         TicketConfig?
 
   @@map("guilds")
 }
@@ -78,6 +79,7 @@ model Giveaway {
   status       String   @default("active")
   createdBy    String   @map("created_by")
   createdAt    DateTime @default(now()) @map("created_at")
+  participants String   @default("")
   guild        Guild    @relation(fields: [guildId], references: [id])
 
   @@map("giveaways")
@@ -116,6 +118,7 @@ model VerificationConfig {
   verifiedRoleId   String  @map("verified_role_id")
   vpnCheckEnabled  Boolean @default(true) @map("vpn_check_enabled")
   altCheckEnabled  Boolean @default(true) @map("alt_check_enabled")
+  panelMessageId   String? @map("panel_message_id")
   guild            Guild   @relation(fields: [guildId], references: [id])
 
   @@map("verification_configs")
@@ -137,13 +140,30 @@ model VerificationAttempt {
 model WelcomeConfig {
   id             String  @id @default(cuid())
   guildId        String  @unique @map("guild_id")
-  categoryId     String  @map("category_id")
+  channelId      String? @map("channel_id")
+  roleId         String? @map("role_id")
   messageText    String  @map("message_text")
+  embedColor     String  @default("#3CFF4A") @map("embed_color")
+  showAvatar     Boolean @default(true) @map("show_avatar")
+  showBanner     Boolean @default(true) @map("show_banner")
+  categoryId     String? @map("category_id")
   imageUrl       String? @map("image_url")
   deleteAfterMin Int     @default(5) @map("delete_after_min")
   guild          Guild   @relation(fields: [guildId], references: [id])
 
   @@map("welcome_configs")
+}
+
+model TicketConfig {
+  id             String  @id @default(cuid())
+  guildId        String  @unique @map("guild_id")
+  channelId      String? @map("channel_id")
+  categoryId     String? @map("category_id")
+  logChannelId   String? @map("log_channel_id")
+  panelMessageId String? @map("panel_message_id")
+  guild          Guild   @relation(fields: [guildId], references: [id])
+
+  @@map("ticket_configs")
 }
 
 model Ticket {

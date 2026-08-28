@@ -98,16 +98,15 @@ async def roulette_setup(interaction: discord.Interaction, channel: discord.Text
         description="Roulette betting system configured!",
         color=0x9D4EDD,
     )
-    await channel.send(embed=embed, view=RoulettePanelView(str(interaction.guild_id)))
+    await channel.send(embed=embed, view=RoulettePanelView())
     await interaction.response.send_message(
         f"✅ Roulette panel set up in {channel.mention}", ephemeral=True
     )
 
 
 class RoulettePanelView(discord.ui.View):
-    def __init__(self, guild_id: str):
+    def __init__(self):
         super().__init__(timeout=None)
-        self.guild_id = guild_id
 
     @discord.ui.select(
         placeholder="Select your bets...",
@@ -136,7 +135,7 @@ class RoulettePanelView(discord.ui.View):
         custom_id="roulette_set_amounts",
     )
     async def set_amounts(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = AmountModal(self.guild_id)
+        modal = AmountModal(str(interaction.guild_id))
         await interaction.response.send_modal(modal)
 
     @discord.ui.button(
@@ -148,7 +147,7 @@ class RoulettePanelView(discord.ui.View):
         user_id = str(interaction.user.id)
         if user_id not in balances or balances[user_id] <= 0:
             await interaction.response.send_message(
-                "You don't have any balance to bet! Use `/roulette daily-bonus` or wait for the daily reset.",
+                "You don't have any balance to bet! Use the 'Daily Bonus' button or wait for the daily reset.",
                 ephemeral=True,
             )
             return
@@ -159,10 +158,9 @@ class RoulettePanelView(discord.ui.View):
         range_ = "1-12" if result <= 12 else ("13-24" if result <= 24 else "25-36")
 
         winnings = 0
-        config = await get_roulette_config(self.guild_id)
+        config = await get_roulette_config(str(interaction.guild_id))
         bet_amount = balances[user_id] if config else 10
 
-        # Simplified: player bets all their balance on a random selection
         winnings = bet_amount * 2
         balances[user_id] = winnings
 
@@ -271,6 +269,11 @@ class AmountModal(discord.ui.Modal, title="Set Bet Amounts"):
             f"✅ Bet amount set to {amount}. Use 'Spin' to play!",
             ephemeral=True,
         )
+
+
+@bot.event
+async def setup_hook():
+    bot.add_view(RoulettePanelView())
 
 
 if __name__ == "__main__":

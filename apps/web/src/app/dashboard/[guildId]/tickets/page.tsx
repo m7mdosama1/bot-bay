@@ -73,7 +73,7 @@ export default async function GuildTicketsPage({
         </div>
 
         <div className="card-bg rounded-xl p-6">
-          <TicketArchiveTable tickets={tickets} />
+          <TicketArchiveTable tickets={tickets} guildId={guildId} />
         </div>
       </main>
     </div>
