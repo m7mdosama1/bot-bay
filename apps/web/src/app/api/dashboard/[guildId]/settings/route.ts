@@ -3,6 +3,7 @@ import {
   upsertWelcomeConfig,
   upsertTicketConfig,
   upsertVerificationConfig,
+  upsertRouletteConfig,
 } from "@/lib/prisma";
 
 export async function POST(
@@ -24,6 +25,14 @@ export async function POST(
         break;
       case "verification":
         result = await upsertVerificationConfig(guildId, data);
+        break;
+      case "roulette":
+        result = await upsertRouletteConfig(guildId, {
+          minBet: data.minBet || 10,
+          maxBet: data.maxBet || 10000,
+          currencyName: data.currencyName || "Coins",
+          enabled: data.enabled !== false,
+        });
         break;
       default:
         return NextResponse.json(

@@ -411,10 +411,221 @@ export async function getTicketStats(guildId: string) {
      FROM tickets WHERE guild_id = $1`,
     [guildId]
   );
-  const row = result.rows[0];
+  const row = result.rows[0] || {};
   return {
-    total: parseInt(row.total, 10),
-    open: parseInt(row.open, 10),
-    closed: parseInt(row.closed, 10),
+    total: parseInt(row.total || "0", 10),
+    open: parseInt(row.open || "0", 10),
+    closed: parseInt(row.closed || "0", 10),
   };
 }
+
+// ─── Guild Bots & Server Dashboard Helpers ───────────────────────
+
+export async function getAllBotsForGuild(guildId: string) {
+  const result = await db.query(
+    `SELECT
+       b.id,
+       b.slug,
+       b.name,
+       b.tagline,
+       b.description,
+       b.features,
+       b.client_id as "clientId",
+       b.permissions,
+       b.icon_url as "iconUrl",
+       b.color_accent as "colorAccent",
+       b.is_active as "isGlobalActive",
+       gb.is_active as "isEnabledInGuild",
+       gb.added_at as "addedAt",
+       CASE WHEN gb.id IS NOT NULL THEN true ELSE false END as "isLinked"
+     FROM bots b
+     LEFT JOIN guild_bots gb ON b.id = gb.bot_id AND gb.guild_id = $1
+     ORDER BY b.created_at ASC`,
+    [guildId]
+  );
+  return result.rows;
+}
+
+export async function getGuildOverviewStats(guildId: string) {
+  const [botsResult, ticketsResult, giveawaysResult, logsResult] = await Promise.all([
+    db.query("SELECT COUNT(*) FROM guild_bots WHERE guild_id = $1 AND is_active = true", [guildId]),
+    db.query(`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status = 'open') as open FROM tickets WHERE guild_id = $1`, [guildId]),
+    db.query("SELECT COUNT(*) FROM giveaways WHERE guild_id = $1 AND status = 'active'", [guildId]),
+    db.query("SELECT COUNT(*) FROM moderation_logs WHERE guild_id = $1", [guildId]),
+  ]);
+
+  return {
+    activeBots: parseInt(botsResult.rows[0]?.count || "0", 10),
+    totalTickets: parseInt(ticketsResult.rows[0]?.total || "0", 10),
+    openTickets: parseInt(ticketsResult.rows[0]?.open || "0", 10),
+    activeGiveaways: parseInt(giveawaysResult.rows[0]?.count || "0", 10),
+    modLogsCount: parseInt(logsResult.rows[0]?.count || "0", 10),
+  };
+}
+
+// ─── Giveaway Helpers ───────────────────────────────────────────
+
+export async function getGiveawaysByGuild(guildId: string) {
+  const result = await db.query(
+    `SELECT * FROM giveaways WHERE guild_id = $1 ORDER BY created_at DESC`,
+    [guildId]
+  );
+  return result.rows;
+}
+
+export async function endGiveaway(giveawayId: string, guildId: string) {
+  const result = await db.query(
+    `UPDATE giveaways SET status = 'ended' WHERE id = $1 AND guild_id = $2 RETURNING *`,
+    [giveawayId, guildId]
+  );
+  return result.rows[0] || null;
+}
+
+// ─── Roulette Config Helpers ────────────────────────────────────
+
+export async function getRouletteConfig(guildId: string) {
+  const result = await db.query(
+    `SELECT * FROM roulette_configs WHERE guild_id = $1`,
+    [guildId]
+  );
+  return result.rows[0] || null;
+}
+
+// ─── Moderation Logs Helpers ────────────────────────────────────
+
+export async function getModerationLogsByGuild(guildId: string, actionFilter?: string) {
+  let query = `SELECT * FROM moderation_logs WHERE guild_id = $1`;
+  const params: any[] = [guildId];
+
+  if (actionFilter && actionFilter !== "all") {
+    params.push(actionFilter);
+    query += ` AND action = $${params.length}`;
+  }
+
+  query += ` ORDER BY created_at DESC LIMIT 50`;
+  const result = await db.query(query, params);
+  return result.rows;
+}
+
+// ─── Super Admin Control Panel Helpers ──────────────────────────
+
+export async function getAllGuildsForAdmin() {
+  const result = await db.query(
+    `SELECT
+       g.id,
+       g.name,
+       g.icon_url as "iconUrl",
+       g.owner_id as "ownerId",
+       g.created_at as "createdAt",
+       COUNT(DISTINCT gb.id) FILTER (WHERE gb.is_active = true) as "activeBotsCount",
+       COUNT(DISTINCT t.id) as "ticketsCount"
+     FROM guilds g
+     LEFT JOIN guild_bots gb ON g.id = gb.guild_id
+     LEFT JOIN tickets t ON g.id = t.guild_id
+     GROUP BY g.id
+     ORDER BY g.created_at DESC`
+  );
+  return result.rows;
+}
+
+export async function getAllBotsForAdmin() {
+  const result = await db.query(
+    `SELECT
+       b.id,
+       b.slug,
+       b.name,
+       b.tagline,
+       b.description,
+       b.features,
+       b.client_id as "clientId",
+       b.permissions,
+       b.icon_url as "iconUrl",
+       b.color_accent as "colorAccent",
+       b.is_active as "isActive",
+       b.created_at as "createdAt",
+       COUNT(DISTINCT gb.guild_id) FILTER (WHERE gb.is_active = true) as "serverCount"
+     FROM bots b
+     LEFT JOIN guild_bots gb ON b.id = gb.bot_id
+     GROUP BY b.id
+     ORDER BY b.created_at ASC`
+  );
+  return result.rows;
+}
+
+export async function toggleBotGlobalStatus(botId: string) {
+  const result = await db.query(
+    `UPDATE bots SET is_active = NOT is_active WHERE id = $1 RETURNING *`,
+    [botId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function updateBotDetails(botId: string, data: {
+  name?: string;
+  tagline?: string;
+  description?: string;
+  clientId?: string;
+  permissions?: string;
+  colorAccent?: string;
+}) {
+  const updates: string[] = [];
+  const params: any[] = [];
+
+  if (data.name !== undefined) {
+    params.push(data.name);
+    updates.push(`name = $${params.length}`);
+  }
+  if (data.tagline !== undefined) {
+    params.push(data.tagline);
+    updates.push(`tagline = $${params.length}`);
+  }
+  if (data.description !== undefined) {
+    params.push(data.description);
+    updates.push(`description = $${params.length}`);
+  }
+  if (data.clientId !== undefined) {
+    params.push(data.clientId);
+    updates.push(`client_id = $${params.length}`);
+  }
+  if (data.permissions !== undefined) {
+    params.push(data.permissions);
+    updates.push(`permissions = $${params.length}`);
+  }
+  if (data.colorAccent !== undefined) {
+    params.push(data.colorAccent);
+    updates.push(`color_accent = $${params.length}`);
+  }
+
+  if (updates.length === 0) return null;
+  params.push(botId);
+
+  const result = await db.query(
+    `UPDATE bots SET ${updates.join(", ")} WHERE id = $${params.length} RETURNING *`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+export async function getAllGlobalTickets(limit = 20, status?: string) {
+  let query = `
+    SELECT
+      t.*,
+      g.name as "guildName",
+      g.icon_url as "guildIconUrl"
+    FROM tickets t
+    JOIN guilds g ON t.guild_id = g.id
+  `;
+  const params: any[] = [];
+
+  if (status && status !== "all") {
+    params.push(status);
+    query += ` WHERE t.status = $${params.length}`;
+  }
+
+  params.push(limit);
+  query += ` ORDER BY t.created_at DESC LIMIT $${params.length}`;
+
+  const result = await db.query(query, params);
+  return result.rows;
+}
+

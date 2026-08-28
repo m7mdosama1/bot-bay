@@ -1,8 +1,14 @@
-import { getGuildById } from "@/lib/prisma";
+import {
+  getGuildById,
+  getAllBotsForGuild,
+  getGuildOverviewStats,
+} from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
+import Image from "next/image";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { ServerBotCard } from "@/components/dashboard/ServerBotCard";
 import { notFound } from "next/navigation";
 
 export default async function GuildDashboardPage({
@@ -33,10 +39,26 @@ export default async function GuildDashboardPage({
   }
 
   let guild: any;
+  let allBots: any[] = [];
+  let stats = {
+    activeBots: 0,
+    totalTickets: 0,
+    openTickets: 0,
+    activeGiveaways: 0,
+    modLogsCount: 0,
+  };
+
   try {
-    guild = await getGuildById(guildId, { withBots: true });
+    const [guildData, botsData, statsData] = await Promise.all([
+      getGuildById(guildId),
+      getAllBotsForGuild(guildId),
+      getGuildOverviewStats(guildId),
+    ]);
+    guild = guildData;
+    allBots = botsData;
+    stats = statsData;
   } catch (error) {
-    console.error("Failed to fetch guild:", error);
+    console.error("Failed to fetch guild dashboard data:", error);
     notFound();
   }
 
@@ -48,61 +70,116 @@ export default async function GuildDashboardPage({
     <div className="min-h-screen bg-bg-void text-text">
       <SiteHeader />
 
-      <main className="pt-24 container mx-auto px-6 py-12">
-        <div className="mb-8 flex items-center justify-between">
+      <main className="pt-24 container mx-auto px-6 py-10 max-w-7xl">
+        {/* Server Header Banner */}
+        <div className="relative rounded-3xl p-8 mb-10 overflow-hidden border border-white/10 bg-gradient-to-br from-bg-raised/80 via-bg-raised/40 to-bg-void shadow-2xl">
+          {/* Subtle glow in background */}
+          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-amber-signal/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              {guild.icon_url ? (
+                <img
+                  src={guild.icon_url}
+                  alt={guild.name}
+                  className="w-20 h-20 rounded-2xl border-2 border-amber-signal/40 shadow-xl object-cover"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-2xl bg-amber-signal/20 border-2 border-amber-signal/40 flex items-center justify-center text-3xl font-bold font-display text-amber-signal shadow-xl">
+                  {guild.name ? guild.name.charAt(0) : "S"}
+                </div>
+              )}
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="font-display text-3xl md:text-4xl font-extrabold text-white">
+                    {guild.name}
+                  </h1>
+                </div>
+                <p className="text-text-dim text-sm font-mono mt-1">
+                  Server ID: <span className="text-white/60">{guild.id}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link
+                href={`/dashboard/${guildId}/tickets`}
+                className="px-5 py-2.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 font-mono text-xs font-semibold rounded-xl border border-blue-500/30 transition-all flex items-center gap-2"
+              >
+                <span>🎫 أرشيف التذاكر</span>
+                {stats.openTickets > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-[10px]">
+                    {stats.openTickets} مفتوحة
+                  </span>
+                )}
+              </Link>
+
+              <Link
+                href="/dashboard"
+                className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-text-dim hover:text-white font-mono text-xs rounded-xl border border-white/10 transition-all"
+              >
+                ← السيرفرات
+              </Link>
+            </div>
+          </div>
+
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-white/5">
+            <div className="bg-bg-void/50 rounded-xl p-4 border border-white/5">
+              <div className="text-xs font-mono text-text-dim">البوتات المفعلة</div>
+              <div className="text-2xl font-bold font-mono text-emerald-400 mt-1">
+                {stats.activeBots} <span className="text-xs text-text-dim font-normal">/ {allBots.length}</span>
+              </div>
+            </div>
+
+            <div className="bg-bg-void/50 rounded-xl p-4 border border-white/5">
+              <div className="text-xs font-mono text-text-dim">التذاكر المفتوحة</div>
+              <div className="text-2xl font-bold font-mono text-blue-400 mt-1">
+                {stats.openTickets} <span className="text-xs text-text-dim font-normal">({stats.totalTickets} إجمالي)</span>
+              </div>
+            </div>
+
+            <div className="bg-bg-void/50 rounded-xl p-4 border border-white/5">
+              <div className="text-xs font-mono text-text-dim">المسابقات النشطة</div>
+              <div className="text-2xl font-bold font-mono text-amber-400 mt-1">
+                {stats.activeGiveaways}
+              </div>
+            </div>
+
+            <div className="bg-bg-void/50 rounded-xl p-4 border border-white/5">
+              <div className="text-xs font-mono text-text-dim">سجلات الإشراف</div>
+              <div className="text-2xl font-bold font-mono text-violet-400 mt-1">
+                {stats.modLogsCount}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section: Bots Management */}
+        <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold text-white mb-2">
-              {guild.name}
-            </h1>
-            <p className="text-text-dim">
-              Manage your Discord bots for this server
+            <h2 className="font-display text-2xl font-bold text-white flex items-center gap-2">
+              <span>🤖</span> بوتات المنصة المتوفرة
+            </h2>
+            <p className="text-text-dim text-sm mt-1">
+              تحكم في تفعيل وتخصيص ودعوة كل بوت لسيرفرك بسهولة وبدون أي أوامر
             </p>
           </div>
-          <Link
-            href="/dashboard"
-            className="text-text-dim hover:text-amber-signal font-mono text-sm transition-colors"
-          >
-            ← Back to Servers
-          </Link>
+          <span className="text-xs font-mono px-3 py-1 rounded-full bg-white/5 text-text-dim border border-white/10">
+            {allBots.length} بوتات متكاملة
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {guild.guildBots.map((gb: any) => (
-            <Link
-              key={gb.botId || gb.id}
-              href={`/dashboard/${guildId}/${gb.bot?.slug || gb.botSlug}`}
-              className="card-bg rounded-xl p-6 hover:border-amber-signal transition-all duration-200 group"
-            >
-              <div className="flex items-center gap-4">
-                <div
-                  className="w-12 h-12 rounded-lg flex items-center justify-center text-xl font-bold"
-                  style={{ backgroundColor: gb.bot?.colorAccent || gb.botColorAccent || "#F2A93B", color: "#0B0B12" }}
-                >
-                  {(gb.bot?.name || gb.botName || "B").charAt(0)}
-                </div>
-                <div>
-                  <h3 className="font-display text-xl font-semibold text-white group-hover:text-amber-signal transition-colors">
-                    {gb.bot?.name || gb.botName}
-                  </h3>
-                  <p className="text-text-dim text-sm">{gb.bot?.tagline || "Bot"}</p>
-                  <span
-                    className={`text-xs font-mono ${gb.isActive ? "text-green-400" : "text-red-400"}`}
-                  >
-                    {gb.isActive ? "Active" : "Inactive"}
-                  </span>
-                </div>
-              </div>
-            </Link>
+        {/* Bots Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          {allBots.map((bot: any) => (
+            <ServerBotCard
+              key={bot.id}
+              bot={bot}
+              guildId={guildId}
+            />
           ))}
-        </div>
-
-        <div className="flex justify-center">
-          <Link
-            href={`/dashboard/${guildId}/tickets`}
-            className="btn btn-ghost rounded-xl font-mono text-sm"
-          >
-            View Ticket Archive
-          </Link>
         </div>
       </main>
     </div>

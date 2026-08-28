@@ -1,9 +1,13 @@
 import {
   getGuildById,
+  getBotBySlug,
   getWelcomeConfig,
   getTicketConfig,
   getVerificationConfig,
   getTicketStats,
+  getGiveawaysByGuild,
+  getRouletteConfig,
+  getModerationLogsByGuild,
 } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -42,28 +46,31 @@ export default async function BotSettingsPage({
   }
 
   let guild: any;
+  let bot: any;
+
   try {
-    guild = await getGuildById(guildId, { withBots: true });
+    const [guildData, botData] = await Promise.all([
+      getGuildById(guildId),
+      getBotBySlug(botSlug),
+    ]);
+    guild = guildData;
+    bot = botData;
   } catch (error) {
-    console.error("Failed to fetch guild:", error);
+    console.error("Failed to fetch guild/bot data:", error);
     notFound();
   }
 
-  if (!guild) {
+  if (!guild || !bot) {
     notFound();
   }
 
-  const bot = guild.guildBots.find((gb: any) => gb.bot?.slug === botSlug || gb.botSlug === botSlug)?.bot
-    || guild.guildBots.find((gb: any) => gb.bot?.slug === botSlug || gb.botSlug === botSlug);
-
-  if (!bot) {
-    notFound();
-  }
-
-  // Fetch config data based on bot type
+  // Fetch specific config and data based on bot slug
   let welcomeConfig = null;
   let ticketConfig = null;
   let verificationConfig = null;
+  let rouletteConfig = null;
+  let giveaways: any[] = [];
+  let moderationLogs: any[] = [];
   let ticketStats = { open: 0, closed: 0, total: 0 };
 
   try {
@@ -76,43 +83,86 @@ export default async function BotSettingsPage({
       ]);
     } else if (botSlug === "verification") {
       verificationConfig = await getVerificationConfig(guildId);
+    } else if (botSlug === "giveaway") {
+      giveaways = await getGiveawaysByGuild(guildId);
+    } else if (botSlug === "roulette") {
+      rouletteConfig = await getRouletteConfig(guildId);
+    } else if (botSlug === "admin") {
+      moderationLogs = await getModerationLogsByGuild(guildId);
     }
   } catch (error) {
     console.error("Failed to fetch bot config:", error);
   }
 
+  // Enrich guild object for child components
+  const enrichedGuild = {
+    ...guild,
+    giveaways,
+    rouletteConfig,
+    moderationLogs,
+  };
+
   return (
     <div className="min-h-screen bg-bg-void text-text">
       <SiteHeader />
 
-      <main className="pt-24 container mx-auto px-6 py-12">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold text-white mb-2">
-              {(bot.name || "Bot")} Settings
-            </h1>
-            <p className="text-text-dim">Configure {bot.name || "Bot"} for this server</p>
+      <main className="pt-24 container mx-auto px-6 py-12 max-w-5xl">
+        {/* Header Navigation */}
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold font-display shadow-lg"
+              style={{
+                backgroundColor: `${bot.colorAccent || "#F2A93B"}20`,
+                border: `1px solid ${bot.colorAccent || "#F2A93B"}40`,
+                color: bot.colorAccent || "#F2A93B",
+              }}
+            >
+              {bot.name ? bot.name.charAt(0) : "B"}
+            </div>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="font-display text-3xl font-extrabold text-white">
+                  {bot.name}
+                </h1>
+                <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-white/10 text-text-dim">
+                  {bot.slug}
+                </span>
+              </div>
+              <p className="text-text-dim text-sm mt-0.5">
+                تخصيص وإعدادات البوت لسيرفر <strong className="text-white">{guild.name}</strong>
+              </p>
+            </div>
           </div>
+
           <Link
             href={`/dashboard/${guildId}`}
-            className="text-text-dim hover:text-amber-signal font-mono text-sm transition-colors"
+            className="self-start sm:self-auto px-4 py-2 bg-white/5 hover:bg-white/10 text-text-dim hover:text-white font-mono text-xs rounded-xl border border-white/10 transition-all"
           >
-            ← Back to Server
+            ← العودة للسيرفر
           </Link>
         </div>
 
-        <div className="card-bg rounded-xl p-6">
-          {botSlug === "giveaway" && <GiveawaySettings guild={guild} />}
-          {botSlug === "roulette" && <RouletteSettings guild={guild} />}
-          {botSlug === "admin" && <AdminLogsView guild={guild} />}
+        {/* Content Box */}
+        <div className="card-bg rounded-3xl p-8 border border-white/10 shadow-2xl">
+          {botSlug === "giveaway" && <GiveawaySettings guild={enrichedGuild} />}
+          {botSlug === "roulette" && <RouletteSettings guild={enrichedGuild} />}
+          {botSlug === "admin" && <AdminLogsView guild={enrichedGuild} />}
           {botSlug === "welcome" && (
             <WelcomeSettings guildId={guildId} config={welcomeConfig} />
           )}
           {botSlug === "ticket" && (
-            <TicketSettings guildId={guildId} config={ticketConfig} stats={ticketStats} />
+            <TicketSettings
+              guildId={guildId}
+              config={ticketConfig}
+              stats={ticketStats}
+            />
           )}
           {botSlug === "verification" && (
-            <VerificationSettings guildId={guildId} config={verificationConfig} />
+            <VerificationSettings
+              guildId={guildId}
+              config={verificationConfig}
+            />
           )}
         </div>
       </main>

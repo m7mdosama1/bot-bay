@@ -3,8 +3,13 @@ import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { verifyAdminSession, getAdminStats, isAdminAllowlisted } from "@/lib/adminAuth";
+import {
+  getAllBotsForAdmin,
+  getAllGuildsForAdmin,
+  getAllGlobalTickets,
+} from "@/lib/prisma";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { AdminStatsCards } from "@/components/admin/AdminStatsCards";
+import { AdminControlCenter } from "@/components/admin/AdminControlCenter";
 
 export default async function AdminPanelPage({
   params,
@@ -66,11 +71,11 @@ export default async function AdminPanelPage({
       <div className="min-h-screen bg-bg-void text-white">
         <SiteHeader />
         <main className="pt-32 container mx-auto px-6 text-center">
-          <h1 className="font-display text-4xl font-bold gradient-text mb-4">
-            Access Denied
+          <h1 className="font-display text-4xl font-bold text-red-500 mb-4">
+            🚫 Access Denied
           </h1>
-          <p className="text-text-dim mb-6">
-            Your Discord ID is not authorized to access the admin panel.
+          <p className="text-text-dim mb-6 font-mono text-sm">
+            Your Discord ID ({userId}) is not authorized to access the super admin panel.
           </p>
         </main>
       </div>
@@ -81,7 +86,6 @@ export default async function AdminPanelPage({
   const adminSession = await verifyAdminSession(userId, session.accessToken as string);
 
   if (!adminSession.authenticated) {
-    // Redirect to 2FA page
     return (
       <div className="min-h-screen bg-bg-void text-white">
         <SiteHeader />
@@ -103,64 +107,43 @@ export default async function AdminPanelPage({
     );
   }
 
-  // Fully authenticated admin - show the dashboard
-  const stats = await getAdminStats();
+  // Fetch complete admin data
+  const [stats, bots, guilds, tickets] = await Promise.all([
+    getAdminStats(),
+    getAllBotsForAdmin(),
+    getAllGuildsForAdmin(),
+    getAllGlobalTickets(30),
+  ]);
 
   return (
     <div className="min-h-screen bg-bg-void text-white">
       <SiteHeader />
 
-      <main className="pt-24 container mx-auto px-6 py-12">
+      <main className="pt-24 container mx-auto px-6 py-12 max-w-7xl">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold text-white mb-2">
-              Admin Panel
+            <h1 className="font-display text-3xl md:text-4xl font-extrabold text-white mb-2">
+              🛡️ Super Admin Control Center
             </h1>
-            <p className="text-text-dim">
-              Bot Bay administration dashboard
+            <p className="text-text-dim text-sm">
+              إدارة المنصة الشاملة، مراقبة البوتات، السيرفرات، والتذاكر المركزية
             </p>
           </div>
           <Link
             href="/"
             className="text-text-dim hover:text-amber-signal font-mono text-sm transition-colors"
           >
-            ← Back to Site
+            ← العودة للموقع
           </Link>
         </div>
 
-        <AdminStatsCards stats={stats} />
-
-        <div className="mt-8 card-bg rounded-xl p-6">
-          <h2 className="font-display text-xl font-bold text-white mb-4">
-            Manage Bots
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-line">
-                  <th className="text-left py-2 font-mono text-xs text-text-dim">Name</th>
-                  <th className="text-left py-2 font-mono text-xs text-text-dim">Slug</th>
-                  <th className="text-left py-2 font-mono text-xs text-text-dim">Active</th>
-                  <th className="text-left py-2 font-mono text-xs text-text-dim">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentTickets.length > 0 && (
-                  <tr>
-                    <td colSpan={4} className="py-2 text-center text-text-dim">
-                      <Link
-                        href={`/${process.env.ADMIN_SECRET_PATH}/tickets/0`}
-                        className="text-amber-signal font-mono text-xs"
-                      >
-                        View all tickets →
-                      </Link>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <AdminControlCenter
+          adminPath={adminPath}
+          stats={stats}
+          bots={bots as any}
+          guilds={guilds as any}
+          tickets={tickets as any}
+        />
       </main>
     </div>
   );

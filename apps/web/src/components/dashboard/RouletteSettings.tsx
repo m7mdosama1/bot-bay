@@ -1,48 +1,160 @@
 "use client";
 
-interface RouletteConfig {
-  id: string;
-  guildId: string;
-  minBet: number;
-  maxBet: number;
-  currencyName: string;
-  enabled: boolean;
-}
-
-interface Guild {
-  id: string;
-  name: string;
-  iconUrl: string | null;
-  ownerId: string;
-}
+import { useState } from "react";
 
 interface Props {
-  guild: Guild & {
-    rouletteConfig: RouletteConfig | null;
+  guild: {
+    id: string;
+    name: string;
+    rouletteConfig?: any;
   };
 }
 
 export function RouletteSettings({ guild }: Props) {
   const config = guild.rouletteConfig;
+  const [minBet, setMinBet] = useState(config?.min_bet || config?.minBet || 10);
+  const [maxBet, setMaxBet] = useState(config?.max_bet || config?.maxBet || 10000);
+  const [currencyName, setCurrencyName] = useState(config?.currency_name || config?.currencyName || "Coins");
+  const [enabled, setEnabled] = useState(config?.enabled !== false);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setMsg(null);
+
+    try {
+      const res = await fetch(`/api/dashboard/${guild.id}/settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          botSlug: "roulette",
+          minBet,
+          maxBet,
+          currencyName,
+          enabled,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to save settings");
+      setMsg({ type: "success", text: "تم حفظ إعدادات لعبة الروليت بنجاح!" });
+      setTimeout(() => setMsg(null), 3500);
+    } catch (err: any) {
+      setMsg({ type: "error", text: err.message || "فشل حفظ الإعدادات" });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div className="space-y-4">
-      <h3 className="font-display text-xl font-bold text-white">Roulette Configuration</h3>
-
-      <div className="text-center py-12 text-text-dim">
-        <p>Use <code className="font-mono text-amber-signal">/roulette-setup</code> in Discord</p>
-        <p className="mt-2">Current settings:</p>
-        {config ? (
-          <div className="mt-4 text-left p-4 bg-bg-raised rounded space-y-2">
-            <p><span className="font-mono">Min Bet:</span> {config.minBet}</p>
-            <p><span className="font-mono">Max Bet:</span> {config.maxBet}</p>
-            <p><span className="font-mono">Currency:</span> {config.currencyName}</p>
-            <p><span className="font-mono">Enabled:</span> {config.enabled ? "Yes" : "No"}</p>
-          </div>
-        ) : (
-          <p className="text-sm">No configuration set. Run /roulette-setup in Discord first.</p>
-        )}
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-2xl">
+          🎡
+        </div>
+        <div>
+          <h3 className="font-display text-xl font-bold text-white">
+            Fortune Wheel — Roulette & Casino
+          </h3>
+          <p className="text-text-dim text-sm">
+            تخصيص اقتصاد السيرفر وحدود الرهان والمكافآت
+          </p>
+        </div>
       </div>
+
+      {msg && (
+        <div
+          className={`p-4 rounded-xl font-mono text-sm border ${
+            msg.type === "success"
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+              : "bg-red-500/10 border-red-500/30 text-red-400"
+          }`}
+        >
+          {msg.text}
+        </div>
+      )}
+
+      <form onSubmit={handleSave} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Currency Name */}
+          <div className="space-y-2">
+            <label className="block text-sm font-mono text-text-dim">
+              اسم العملة (Currency Name)
+            </label>
+            <input
+              type="text"
+              value={currencyName}
+              onChange={(e) => setCurrencyName(e.target.value)}
+              placeholder="Coins / Credits / عملات"
+              className="w-full px-4 py-2.5 bg-bg-raised border border-white/10 rounded-xl text-white font-mono text-sm focus:border-amber-signal/50 focus:outline-none"
+            />
+            <p className="text-xs text-text-dim">اسم العملة الافتراضية اللي بتظهر للاعبين في السيرفر</p>
+          </div>
+
+          {/* Min Bet */}
+          <div className="space-y-2">
+            <label className="block text-sm font-mono text-text-dim">
+              الحد الأدنى للرهان (Min Bet)
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={minBet}
+              onChange={(e) => setMinBet(parseInt(e.target.value, 10))}
+              className="w-full px-4 py-2.5 bg-bg-raised border border-white/10 rounded-xl text-white font-mono text-sm focus:border-amber-signal/50 focus:outline-none"
+            />
+            <p className="text-xs text-text-dim">أقل مبلغ يقدر العضو يراهن عليه</p>
+          </div>
+
+          {/* Max Bet */}
+          <div className="space-y-2">
+            <label className="block text-sm font-mono text-text-dim">
+              الحد الأقصى للرهان (Max Bet)
+            </label>
+            <input
+              type="number"
+              min="10"
+              value={maxBet}
+              onChange={(e) => setMaxBet(parseInt(e.target.value, 10))}
+              className="w-full px-4 py-2.5 bg-bg-raised border border-white/10 rounded-xl text-white font-mono text-sm focus:border-amber-signal/50 focus:outline-none"
+            />
+            <p className="text-xs text-text-dim">أعلى مبلغ مسموح بالمراهنة عليه في الجولة الواحدة</p>
+          </div>
+
+          {/* Enable Toggle */}
+          <div className="space-y-2 flex flex-col justify-end">
+            <div className="p-4 bg-bg-raised rounded-xl border border-white/5 flex items-center justify-between">
+              <div>
+                <span className="text-sm font-mono text-white block">حالة اللعبة</span>
+                <span className="text-xs text-text-dim">السماح بتشغيل عجلة الحظ والروليت</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={(e) => setEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-white/10 rounded-full peer-checked:bg-amber-500 transition-colors"></div>
+                <div className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Save button */}
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-6 py-2.5 bg-amber-signal hover:bg-amber-signal/90 text-black font-mono font-bold text-sm rounded-xl transition-all disabled:opacity-50"
+          >
+            {saving ? "جاري الحفظ..." : "💾 حفظ الإعدادات"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

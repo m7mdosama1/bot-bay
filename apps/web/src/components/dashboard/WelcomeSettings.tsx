@@ -153,6 +153,70 @@ export function WelcomeSettings({ guildId, config }: Props) {
         </label>
       </div>
 
+      {/* Discord Live Preview Card */}
+      <div className="pt-4 border-t border-white/5 space-y-3">
+        <h4 className="font-display text-sm font-bold text-text-dim flex items-center gap-2">
+          <span>👁️</span> معاينة حية لرسالة الترحيب في ديسكورد (Live Preview)
+        </h4>
+
+        <div className="bg-[#2B2D31] rounded-2xl p-5 border border-white/5 max-w-xl">
+          {/* Mock Discord message layout */}
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-black flex-shrink-0">
+              👋
+            </div>
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-white">Threshold</span>
+                <span className="px-1.5 py-0.2 rounded bg-[#5865F2] text-white text-[10px] font-semibold">BOT</span>
+                <span className="text-[11px] text-[#949BA4]">اليوم في 12:00 م</span>
+              </div>
+
+              {/* Embed Box */}
+              <div
+                className="bg-[#1E1F22] rounded-lg p-4 border-l-4 space-y-3"
+                style={{ borderLeftColor: embedColor || "#3CFF4A" }}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h5 className="font-bold text-sm text-white">
+                      Welcome to the server! 👋
+                    </h5>
+                    <p className="text-xs text-[#DBDEE1] mt-1 whitespace-pre-wrap">
+                      {messageText
+                        .replace(/\{\{user\}\}/g, "@NewMember")
+                        .replace(/\{\{server\}\}/g, "My Awesome Server")}
+                    </p>
+                  </div>
+                  {showAvatar && (
+                    <div className="w-12 h-12 rounded-full bg-amber-signal/20 border border-white/10 flex items-center justify-center text-lg flex-shrink-0">
+                      👤
+                    </div>
+                  )}
+                </div>
+
+                {showBanner && (
+                  <div className="w-full h-24 rounded-lg bg-gradient-to-r from-emerald-500/20 via-blue-500/20 to-purple-500/20 border border-white/5 flex items-center justify-center text-xs text-text-dim font-mono">
+                    [ Server Banner Image ]
+                  </div>
+                )}
+              </div>
+
+              {/* Mock Button */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  disabled
+                  className="px-4 py-1.5 bg-[#5865F2] text-white text-xs font-semibold rounded flex items-center gap-1.5 opacity-90 cursor-default"
+                >
+                  <span>✅</span> Accept Rules | الموافقة على القوانين
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Save */}
       <div className="flex items-center gap-4 pt-2">
         <button
