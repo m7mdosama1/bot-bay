@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -20,7 +21,7 @@ export default async function GuildTicketsAdminPage({
     notFound();
   }
 
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   const adminSession = await verifyAdminSession(
     session?.user?.id,

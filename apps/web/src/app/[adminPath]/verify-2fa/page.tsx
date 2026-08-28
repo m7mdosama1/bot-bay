@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { verifyTotpAndCreateSession, isAdminAllowlisted, checkFailedAttempts } from "@/lib/adminAuth";
@@ -18,7 +19,7 @@ export default async function AdminVerify2FAPage({
     notFound();
   }
 
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   if (!session || !session.user) {
     redirect("/login");

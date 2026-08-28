@@ -1,5 +1,6 @@
 import { getGuildById } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -13,7 +14,7 @@ export default async function BotSettingsPage({
   params: Promise<{ guildId: string; botSlug: string }>;
 }) {
   const { guildId, botSlug } = await params;
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   if (!session || !session.user) {
     return (

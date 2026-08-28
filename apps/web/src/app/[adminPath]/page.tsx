@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { verifyAdminSession, getAdminStats, isAdminAllowlisted } from "@/lib/adminAuth";
@@ -16,7 +17,7 @@ export default async function AdminPanelPage({
     notFound();
   }
 
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   // Check if user even has a Discord session first
   if (!session || !session.user) {

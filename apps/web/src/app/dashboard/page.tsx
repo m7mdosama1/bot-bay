@@ -1,11 +1,12 @@
 import { fetchUserGuilds, syncUserGuilds, DiscordGuildWithBots, DiscordGuild } from "@/lib/discordApi";
 import { getGuildById } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 
 export default async function DashboardPage() {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   if (!session || !session.user) {
     return (

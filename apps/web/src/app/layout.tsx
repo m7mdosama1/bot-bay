@@ -1,5 +1,6 @@
 import "./globals.css";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { Space_Grotesk } from "next/font/google";
 import { ClientProviders } from "@/components/providers/ClientProviders";
 import { Footer } from "@/components/layout/Footer";
@@ -24,7 +25,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   return (
     <html lang="en" className={`${spaceGrotesk.variable} h-full`} data-scroll-behavior="smooth">

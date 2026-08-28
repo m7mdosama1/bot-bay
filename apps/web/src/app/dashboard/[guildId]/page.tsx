@@ -1,5 +1,6 @@
 import { getGuildById } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { notFound } from "next/navigation";
@@ -10,7 +11,7 @@ export default async function GuildDashboardPage({
   params: Promise<{ guildId: string }>;
 }) {
   const { guildId } = await params;
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   if (!session || !session.user) {
     return (
