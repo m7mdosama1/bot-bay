@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { isAdminAllowlisted } from "@/lib/adminAuth";
-import { toggleBotGlobalStatus, updateBotDetails } from "@/lib/prisma";
+import {
+  toggleBotGlobalStatus,
+  updateBotDetails,
+  createBotForAdmin,
+  deleteBotForAdmin,
+} from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -21,6 +26,16 @@ export async function POST(req: NextRequest) {
 
     if (action === "update") {
       const result = await updateBotDetails(botId, data);
+      return NextResponse.json({ success: true, bot: result });
+    }
+
+    if (action === "create") {
+      const result = await createBotForAdmin(data);
+      return NextResponse.json({ success: true, bot: result });
+    }
+
+    if (action === "delete") {
+      const result = await deleteBotForAdmin(botId);
       return NextResponse.json({ success: true, bot: result });
     }
 

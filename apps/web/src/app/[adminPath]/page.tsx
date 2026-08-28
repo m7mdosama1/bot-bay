@@ -125,15 +125,15 @@ export default async function AdminPanelPage({
             <h1 className="font-display text-3xl md:text-4xl font-extrabold text-white mb-2">
               🛡️ Super Admin Control Center
             </h1>
-            <p className="text-text-dim text-sm">
-              إدارة المنصة الشاملة، مراقبة البوتات، السيرفرات، والتذاكر المركزية
+            <p className="text-text-dim text-sm font-mono">
+              Global Platform Control • Multi-Bot Fleet Management • Server Diagnostics
             </p>
           </div>
           <Link
             href="/"
             className="text-text-dim hover:text-amber-signal font-mono text-sm transition-colors"
           >
-            ← العودة للموقع
+            ← Back to Public Site
           </Link>
         </div>
 

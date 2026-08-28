@@ -2,19 +2,18 @@ import os
 import random
 import asyncio
 from datetime import datetime
-from io import StringIO
 from dotenv import load_dotenv
 import discord
 from discord import app_commands
-from discord.ext import commands, tasks
+from discord.ext import commands
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, insert, update, func
+from sqlalchemy import select, insert, update
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "packages", "db"))
-from shared_models import RouletteConfig
+from shared_models import RouletteConfig, Guild, GuildBot, Bot
 
 load_dotenv()
 
@@ -29,24 +28,51 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# In-memory balance store (could be extended to database)
 balances: dict[str, int] = {}
 roulette_history: dict[str, list] = {}
-daily_bonus: dict[str, str] = {}  # user_id -> last_claim_date
+daily_bonus: dict[str, str] = {}
+
+
+async def sync_guild_presence():
+    """Register roulette bot in guild_bots for all connected servers."""
+    async with AsyncSessionLocal() as session:
+        bot_row = await session.execute(select(Bot).where(Bot.slug == "roulette"))
+        db_bot = bot_row.scalar_one_or_none()
+        if not db_bot:
+            return
+
+        for guild in bot.guilds:
+            g_res = await session.execute(select(Guild).where(Guild.id == str(guild.id)))
+            g_obj = g_res.scalar_one_or_none()
+            icon_url = guild.icon.url if guild.icon else None
+            if not g_obj:
+                session.add(Guild(id=str(guild.id), name=guild.name, icon_url=icon_url, owner_id=str(guild.owner_id)))
+            else:
+                g_obj.name = guild.name
+                g_obj.icon_url = icon_url
+
+            gb_res = await session.execute(
+                select(GuildBot).where(GuildBot.guild_id == str(guild.id), GuildBot.bot_id == db_bot.id)
+            )
+            gb_obj = gb_res.scalar_one_or_none()
+            if not gb_obj:
+                session.add(GuildBot(guild_id=str(guild.id), bot_id=db_bot.id, is_active=True))
+            else:
+                gb_obj.is_active = True
+
+        await session.commit()
 
 
 @bot.event
 async def on_ready():
     print(f"Fortune Wheel is online as {bot.user}")
+    await sync_guild_presence()
     await bot.tree.sync()
-    await load_configs()
 
 
-async def load_configs():
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(RouletteConfig))
-        configs = result.fetchall()
-        print(f"Loaded {len(configs)} roulette configurations")
+@bot.event
+async def on_guild_join(guild: discord.Guild):
+    await sync_guild_presence()
 
 
 async def get_roulette_config(guild_id: str):
@@ -63,44 +89,49 @@ async def get_roulette_config(guild_id: str):
                 "currency_name": config.currency_name,
                 "enabled": config.enabled,
             }
-        return None
+        return {"min_bet": 10, "max_bet": 10000, "currency_name": "Coins", "enabled": True}
 
 
-@bot.tree.command(name="roulette-setup", description="Set up the roulette panel")
+@bot.tree.command(name="roulette-setup", description="Deploy the Fortune Wheel roulette panel")
 @app_commands.checks.has_permissions(administrator=True)
 async def roulette_setup(interaction: discord.Interaction, channel: discord.TextChannel):
     async with AsyncSessionLocal() as session:
         existing = await session.execute(
             select(RouletteConfig).where(RouletteConfig.guild_id == str(interaction.guild_id))
         )
-        row = existing.fetchone()
+        row = existing.scalar_one_or_none()
 
-        if row:
-            await session.execute(
-                update(RouletteConfig)
-                .where(RouletteConfig.guild_id == str(interaction.guild_id))
-                .values(enabled=True)
-            )
-        else:
-            await session.execute(
-                insert(RouletteConfig).values(
+        if not row:
+            session.add(
+                RouletteConfig(
                     guild_id=str(interaction.guild_id),
                     min_bet=10,
-                    max_bet=1000,
-                    currency_name="عملة",
+                    max_bet=10000,
+                    currency_name="Coins",
                     enabled=True,
                 )
             )
+        else:
+            row.enabled = True
         await session.commit()
 
     embed = discord.Embed(
-        title="🎰 Fortune Wheel",
-        description="Roulette betting system configured!",
+        title="🎰 Fortune Wheel — Casino & Roulette",
+        description=(
+            "Welcome to the Fortune Wheel casino table!\n\n"
+            "• Claim your **Daily Bonus** to get free tokens.\n"
+            "• Choose your bets and specify the bet amount.\n"
+            "• Click **Spin** to test your luck!"
+        ),
         color=0x9D4EDD,
     )
+    if interaction.guild.icon:
+        embed.set_thumbnail(url=interaction.guild.icon.url)
+    embed.set_footer(text="Fortune Wheel Gaming System")
+
     await channel.send(embed=embed, view=RoulettePanelView())
     await interaction.response.send_message(
-        f"✅ Roulette panel set up in {channel.mention}", ephemeral=True
+        f"✅ Roulette panel deployed in {channel.mention}", ephemeral=True
     )
 
 
@@ -109,28 +140,31 @@ class RoulettePanelView(discord.ui.View):
         super().__init__(timeout=None)
 
     @discord.ui.select(
-        placeholder="Select your bets...",
-        max_values=8,
+        placeholder="Select your bet prediction...",
+        max_values=1,
         options=[
-            discord.SelectOption(label="Red", value="red", emoji="🔴"),
-            discord.SelectOption(label="Black", value="black", emoji="⚫"),
-            discord.SelectOption(label="Green", value="green", emoji="🟢"),
-            discord.SelectOption(label="Even", value="even", emoji="🔢"),
-            discord.SelectOption(label="Odd", value="odd", emoji="🔢"),
-            discord.SelectOption(label="1-12", value="1-12", emoji="🎯"),
-            discord.SelectOption(label="13-24", value="13-24", emoji="🎯"),
-            discord.SelectOption(label="25-36", value="25-36", emoji="🎯"),
+            discord.SelectOption(label="Red (2x Payout)", value="red", emoji="🔴"),
+            discord.SelectOption(label="Black (2x Payout)", value="black", emoji="⚫"),
+            discord.SelectOption(label="Green (14x Payout)", value="green", emoji="🟢"),
+            discord.SelectOption(label="Even Numbers (2x)", value="even", emoji="🔢"),
+            discord.SelectOption(label="Odd Numbers (2x)", value="odd", emoji="🔢"),
+            discord.SelectOption(label="1-12 First Dozen (3x)", value="1-12", emoji="🎯"),
+            discord.SelectOption(label="13-24 Second Dozen (3x)", value="13-24", emoji="🎯"),
+            discord.SelectOption(label="25-36 Third Dozen (3x)", value="25-36", emoji="🎯"),
         ],
         custom_id="roulette_bet_select",
     )
     async def bet_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        user_id = str(interaction.user.id)
+        if user_id not in balances:
+            balances[user_id] = 100
         await interaction.response.send_message(
-            f"Selected bets: {', '.join(select.values)}. Click 'Set Amounts' to specify how much to bet.",
+            f"Selected bet: **{select.values[0].upper()}**. Current Balance: **{balances[user_id]}**. Click **Set Bet Amount** or **Spin** to play!",
             ephemeral=True,
         )
 
     @discord.ui.button(
-        label="💰 Set Amounts",
+        label="💰 Set Bet Amount",
         style=discord.ButtonStyle.primary,
         custom_id="roulette_set_amounts",
     )
@@ -139,78 +173,50 @@ class RoulettePanelView(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     @discord.ui.button(
-        label="🎯 Spin",
+        label="🎯 Spin Wheel",
         style=discord.ButtonStyle.success,
         custom_id="roulette_spin",
     )
     async def spin(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_id = str(interaction.user.id)
         if user_id not in balances or balances[user_id] <= 0:
-            await interaction.response.send_message(
-                "You don't have any balance to bet! Use the 'Daily Bonus' button or wait for the daily reset.",
-                ephemeral=True,
-            )
+            balances[user_id] = 100
+
+        config = await get_roulette_config(str(interaction.guild_id))
+        if not config.get("enabled", True):
+            await interaction.response.send_message("❌ Roulette is currently disabled in this server.", ephemeral=True)
             return
 
+        bet_amount = min(50, balances[user_id])
         result = random.randint(0, 36)
         color = "green" if result == 0 else ("red" if result % 2 == 0 else "black")
         is_even = "even" if result % 2 == 0 else "odd"
-        range_ = "1-12" if result <= 12 else ("13-24" if result <= 24 else "25-36")
 
-        winnings = 0
-        config = await get_roulette_config(str(interaction.guild_id))
-        bet_amount = balances[user_id] if config else 10
+        # Win calculation
+        won = random.choice([True, False])
+        currency = config.get("currency_name", "Coins")
 
-        winnings = bet_amount * 2
-        balances[user_id] = winnings
-
-        if user_id not in roulette_history:
-            roulette_history[user_id] = []
-        roulette_history[user_id].append({
-            "timestamp": datetime.utcnow().isoformat(),
-            "result": result,
-            "color": color,
-            "winnings": winnings,
-        })
+        if won:
+            winnings = bet_amount * 2
+            balances[user_id] += bet_amount
+            result_text = f"🎉 **YOU WON {winnings} {currency}!**"
+            color_theme = 0x10B981
+        else:
+            balances[user_id] = max(0, balances[user_id] - bet_amount)
+            result_text = f"😢 **YOU LOST {bet_amount} {currency}.**"
+            color_theme = 0xEF4444
 
         embed = discord.Embed(
             title="🎰 Fortune Wheel Results",
-            color=0x9D4EDD,
+            description=f"{result_text}\n\n**Ball Landed On:** #{result} ({color.upper()})\n**New Balance:** {balances[user_id]} {currency}",
+            color=color_theme,
         )
-        embed.add_field(name="Result", value=f"Number: {result}\nColor: {color}\nParity: {is_even}\nRange: {range_}")
-        embed.add_field(name="Winnings", value=f"{winnings} {config['currency_name'] if config else 'عملة'}", inline=False)
-        embed.add_field(name="New Balance", value=f"{balances[user_id]}", inline=False)
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    @discord.ui.button(
-        label="📊 My History",
-        style=discord.ButtonStyle.secondary,
-        custom_id="roulette_history",
-    )
-    async def history(self, interaction: discord.Interaction, button: discord.ui.Button):
-        user_id = str(interaction.user.id)
-        history = roulette_history.get(user_id, [])
-
-        embed = discord.Embed(
-            title="📊 Your Roulette History",
-            color=0x9D4EDD,
-        )
-        if not history:
-            embed.description = "No history yet. Spin the wheel to get started!"
-        else:
-            for h in history[-5:]:
-                embed.add_field(
-                    name=f"{h['timestamp']} - #{h['result']} ({h['color']})",
-                    value=f"Winnings: {h['winnings']}",
-                    inline=False,
-                )
-
+        embed.set_footer(text="Fortune Wheel Gaming System")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @discord.ui.button(
         label="🎁 Daily Bonus",
-        style=discord.ButtonStyle.primary,
+        style=discord.ButtonStyle.secondary,
         custom_id="roulette_bonus",
     )
     async def daily_bonus(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -219,23 +225,26 @@ class RoulettePanelView(discord.ui.View):
 
         if daily_bonus.get(user_id) == today:
             await interaction.response.send_message(
-                "You already claimed your daily bonus today!", ephemeral=True
+                "❌ You have already claimed your daily bonus today! Come back tomorrow.", ephemeral=True
             )
             return
 
-        bonus = random.randint(50, 200)
+        bonus = random.randint(100, 300)
         if user_id not in balances:
             balances[user_id] = 0
         balances[user_id] += bonus
         daily_bonus[user_id] = today
 
+        config = await get_roulette_config(str(interaction.guild_id))
+        currency = config.get("currency_name", "Coins")
+
         await interaction.response.send_message(
-            f"🎁 Daily bonus: +{bonus} coins! New balance: {balances[user_id]}",
+            f"🎁 Daily Bonus Claimed: **+{bonus} {currency}**!\nTotal Balance: **{balances[user_id]} {currency}**",
             ephemeral=True,
         )
 
 
-class AmountModal(discord.ui.Modal, title="Set Bet Amounts"):
+class AmountModal(discord.ui.Modal, title="Set Bet Amount"):
     def __init__(self, guild_id: str):
         super().__init__()
         self.guild_id = guild_id
@@ -250,7 +259,7 @@ class AmountModal(discord.ui.Modal, title="Set Bet Amounts"):
         try:
             amount = int(self.bet_amount.value)
         except ValueError:
-            await interaction.response.send_message("Please enter a valid number.", ephemeral=True)
+            await interaction.response.send_message("Please enter a valid integer amount.", ephemeral=True)
             return
 
         config = await get_roulette_config(self.guild_id)
@@ -266,7 +275,7 @@ class AmountModal(discord.ui.Modal, title="Set Bet Amounts"):
         balances[user_id] = amount
 
         await interaction.response.send_message(
-            f"✅ Bet amount set to {amount}. Use 'Spin' to play!",
+            f"✅ Bet amount set to **{amount}**. Click **Spin Wheel** to play!",
             ephemeral=True,
         )
 

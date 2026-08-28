@@ -60,10 +60,10 @@ export function AdminLogsView({ guild }: Props) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center text-2xl">
             🛡️
           </div>
@@ -72,14 +72,14 @@ export function AdminLogsView({ guild }: Props) {
               Aegis — Server Moderation Logs
             </h3>
             <p className="text-text-dim text-sm">
-              سجلات الإشراف، العقوبات، وحماية السيرفر
+              Live audit history of member punishments, bans, kicks, and warnings
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono px-3 py-1.5 rounded-xl bg-bg-raised text-text-dim border border-white/5">
-            إجمالي السجلات: <strong className="text-white">{logs.length}</strong>
+          <span className="text-xs font-mono px-3.5 py-2 rounded-xl bg-bg-raised text-text-dim border border-white/5 shadow">
+            Total Records: <strong className="text-white">{logs.length}</strong>
           </span>
         </div>
       </div>
@@ -91,8 +91,8 @@ export function AdminLogsView({ guild }: Props) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="بحث بمعرف العضو، المشرف، أو السبب..."
-            className="w-full px-4 py-2 bg-bg-raised border border-white/10 rounded-xl text-white font-mono text-sm placeholder:text-text-dim focus:outline-none focus:border-amber-signal/50"
+            placeholder="Search by target user ID, moderator ID, or reason..."
+            className="w-full px-4 py-2.5 bg-bg-raised border border-white/10 rounded-xl text-white font-mono text-sm placeholder:text-text-dim focus:outline-none focus:border-amber-signal/50"
           />
         </div>
 
@@ -101,13 +101,13 @@ export function AdminLogsView({ guild }: Props) {
             <button
               key={act}
               onClick={() => setFilterAction(act)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono capitalize transition-all ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono capitalize transition-all ${
                 filterAction === act
-                  ? "bg-amber-signal text-black font-bold"
+                  ? "bg-amber-signal text-black font-bold shadow"
                   : "text-text-dim hover:text-white"
               }`}
             >
-              {act === "all" ? "الكل" : act}
+              {act === "all" ? "All Logs" : act}
             </button>
           ))}
         </div>
@@ -115,23 +115,23 @@ export function AdminLogsView({ guild }: Props) {
 
       {/* Logs Table */}
       {filteredLogs.length === 0 ? (
-        <div className="text-center py-16 text-text-dim bg-bg-raised/40 rounded-2xl border border-white/5">
+        <div className="text-center py-16 text-text-dim bg-bg-raised/40 rounded-3xl border border-white/5">
           <div className="text-3xl mb-2">📋</div>
-          <p className="font-mono text-sm">لا توجد سجلات إشراف مطابقة.</p>
+          <p className="font-mono text-sm">No matching moderation records found.</p>
           <p className="text-xs text-text-dim mt-1">
-            أي عملية حظر، طرد، أو كتم تتم عبر بوت الإدارة ستظهر هنا فوراً.
+            Any bans, kicks, mutes, or warnings executed via Aegis bot will appear here automatically.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-white/5 bg-bg-raised/40">
+        <div className="overflow-x-auto rounded-3xl border border-white/10 bg-bg-raised/40 shadow-xl">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/10 text-xs font-mono text-text-dim bg-white/5">
-                <th className="py-3 px-4">نوع الإجراء</th>
-                <th className="py-3 px-4">العضو المستهدف</th>
-                <th className="py-3 px-4">المشرف المسؤول</th>
-                <th className="py-3 px-4">السبب</th>
-                <th className="py-3 px-4">التاريخ والوقت</th>
+                <th className="py-3 px-4">Action</th>
+                <th className="py-3 px-4">Target Member</th>
+                <th className="py-3 px-4">Staff Moderator</th>
+                <th className="py-3 px-4">Reason</th>
+                <th className="py-3 px-4">Timestamp</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-sm font-mono">
@@ -146,10 +146,10 @@ export function AdminLogsView({ guild }: Props) {
                     <td className="py-3 px-4 text-white font-semibold">{target}</td>
                     <td className="py-3 px-4 text-text-dim">{mod}</td>
                     <td className="py-3 px-4 text-text-dim max-w-xs truncate">
-                      {log.reason || "بدون سبب محدد"}
+                      {log.reason || "No reason specified"}
                     </td>
                     <td className="py-3 px-4 text-xs text-text-dim">
-                      {created ? new Date(created).toLocaleString("ar-EG") : "—"}
+                      {created ? new Date(created).toLocaleString() : "—"}
                     </td>
                   </tr>
                 );

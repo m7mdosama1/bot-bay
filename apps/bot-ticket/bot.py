@@ -13,7 +13,7 @@ from sqlalchemy import select, func
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "packages", "db"))
-from shared_models import Base, Ticket, TicketConfig
+from shared_models import Base, Ticket, TicketConfig, Guild, GuildBot, Bot
 
 load_dotenv()
 
@@ -30,20 +30,56 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
+async def sync_guild_presence():
+    """Register ticket bot in guild_bots for all connected servers."""
+    async with AsyncSessionLocal() as session:
+        bot_row = await session.execute(select(Bot).where(Bot.slug == "ticket"))
+        db_bot = bot_row.scalar_one_or_none()
+        if not db_bot:
+            return
+
+        for guild in bot.guilds:
+            g_res = await session.execute(select(Guild).where(Guild.id == str(guild.id)))
+            g_obj = g_res.scalar_one_or_none()
+            icon_url = guild.icon.url if guild.icon else None
+            if not g_obj:
+                session.add(Guild(id=str(guild.id), name=guild.name, icon_url=icon_url, owner_id=str(guild.owner_id)))
+            else:
+                g_obj.name = guild.name
+                g_obj.icon_url = icon_url
+
+            gb_res = await session.execute(
+                select(GuildBot).where(GuildBot.guild_id == str(guild.id), GuildBot.bot_id == db_bot.id)
+            )
+            gb_obj = gb_res.scalar_one_or_none()
+            if not gb_obj:
+                session.add(GuildBot(guild_id=str(guild.id), bot_id=db_bot.id, is_active=True))
+            else:
+                gb_obj.is_active = True
+
+        await session.commit()
+
+
 @bot.event
 async def on_ready():
     print(f"Deskline (Ticket) is online as {bot.user}")
+    await sync_guild_presence()
     await bot.tree.sync()
+
+
+@bot.event
+async def on_guild_join(guild: discord.Guild):
+    await sync_guild_presence()
 
 
 class TicketDropdown(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Support | دعم فني", description="أعطال ومشاكل تقنية", emoji="🛠️", value="support"),
-            discord.SelectOption(label="Report | بلاغ", description="الإبلاغ عن لاعب أو مخالفة", emoji="🚨", value="report"),
-            discord.SelectOption(label="Question | استفسار", description="استفسارات عامة وسؤال الإدارة", emoji="❓", value="question"),
+            discord.SelectOption(label="Technical Support", description="Get assistance with technical issues", emoji="🛠️", value="support"),
+            discord.SelectOption(label="General Inquiry", description="Questions regarding rules or server", emoji="❓", value="inquiry"),
+            discord.SelectOption(label="Management & Reports", description="Report a player or contact admins", emoji="🚨", value="report"),
         ]
-        super().__init__(placeholder="Choose ticket type | اختر نوع التذكرة", min_values=1, max_values=1, options=options, custom_id="ticket_dropdown")
+        super().__init__(placeholder="Select ticket category...", min_values=1, max_values=1, options=options, custom_id="ticket_dropdown")
 
     async def callback(self, interaction: discord.Interaction):
         await create_user_ticket(interaction, self.values[0])
@@ -54,7 +90,7 @@ class TicketPanelView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(TicketDropdown())
 
-    @discord.ui.button(label="Open Ticket | فتح تذكرة عامة", style=discord.ButtonStyle.primary, emoji="🎫", custom_id="ticket_open_btn")
+    @discord.ui.button(label="Open Ticket", style=discord.ButtonStyle.primary, emoji="🎫", custom_id="ticket_open_btn")
     async def open_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await create_user_ticket(interaction, "general")
 
@@ -69,7 +105,7 @@ async def create_user_ticket(interaction: discord.Interaction, ticket_type: str)
         )
         config = result.scalar_one_or_none()
         if not config or not config.category_id:
-            await interaction.followup.send("❌ نظام التذاكر لم يتم إعداده بعد في هذا السيرفر.", ephemeral=True)
+            await interaction.followup.send("❌ Ticket category is not configured for this server yet.", ephemeral=True)
             return
 
         # Check for open ticket
@@ -82,7 +118,7 @@ async def create_user_ticket(interaction: discord.Interaction, ticket_type: str)
         )
         existing = result_tickets.fetchall()
         if existing:
-            await interaction.followup.send("❌ لديك تذكرة مفتوحة بالفعل في السيرفر.", ephemeral=True)
+            await interaction.followup.send("❌ You already have an open ticket in this server.", ephemeral=True)
             return
 
         # Count total tickets for ticket number
@@ -93,17 +129,17 @@ async def create_user_ticket(interaction: discord.Interaction, ticket_type: str)
 
     category = interaction.guild.get_channel(int(config.category_id))
     if not category or not isinstance(category, discord.CategoryChannel):
-        await interaction.followup.send("❌ فئة التذاكر المحددة غير موجودة.", ephemeral=True)
+        await interaction.followup.send("❌ Configured ticket category was not found.", ephemeral=True)
         return
 
     overwrites = {
         interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-        interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+        interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True, embed_links=True),
         interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_messages=True, manage_channels=True),
     }
 
     channel = await interaction.guild.create_text_channel(
-        name=f"ticket-{ticket_type}-{ticket_number}",
+        name=f"ticket-{ticket_number}",
         category=category,
         overwrites=overwrites,
         topic=f"Ticket #{ticket_number} ({ticket_type}) | Opened by {interaction.user}",
@@ -123,16 +159,20 @@ async def create_user_ticket(interaction: discord.Interaction, ticket_type: str)
         await session.commit()
 
     embed = discord.Embed(
-        title=f"🎫 Ticket #{ticket_number} | تذكرة جديدة",
-        description=f"مرحباً {interaction.user.mention}\nلقد قمت بفتح تذكرة من نوع **({ticket_type})**.\nالرجاء طرح مشكلتك وسيقوم فريق الدعم بالرد عليك قريباً.",
+        title=f"🎫 Ticket #{ticket_number}",
+        description=(
+            f"Hello {interaction.user.mention}!\n"
+            f"Thank you for contacting support regarding **{ticket_type.upper()}**.\n\n"
+            f"Please describe your issue in detail. A staff member will assist you shortly."
+        ),
         color=0xF2A93B
     )
-    embed.set_footer(text="أزرار التحكم بالتذكرة بالأسفل")
+    embed.set_footer(text="Deskline Ticket System • Click below to manage this ticket")
 
     view = TicketActionView(ticket_number, str(interaction.user.id), guild_id)
-    await channel.send(embed=embed, view=view)
+    await channel.send(content=f"{interaction.user.mention}", embed=embed, view=view)
 
-    await interaction.followup.send(f"✅ تم فتح تذكرتك بنجاح: {channel.mention}", ephemeral=True)
+    await interaction.followup.send(f"✅ Ticket created successfully: {channel.mention}", ephemeral=True)
 
 
 class TicketActionView(discord.ui.View):
@@ -142,7 +182,7 @@ class TicketActionView(discord.ui.View):
         self.owner_id = owner_id
         self.guild_id = guild_id
 
-    @discord.ui.button(label="Claim | استلام التذكرة", style=discord.ButtonStyle.success, emoji="🙋‍♂️", custom_id="ticket_claim_btn")
+    @discord.ui.button(label="Claim Ticket", style=discord.ButtonStyle.success, emoji="🙋", custom_id="ticket_claim_btn")
     async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
         async with AsyncSessionLocal() as session:
             result = await session.execute(
@@ -150,7 +190,7 @@ class TicketActionView(discord.ui.View):
             )
             ticket = result.scalar_one_or_none()
             if not ticket:
-                await interaction.response.send_message("❌ لم يتم العثور على التذكرة.", ephemeral=True)
+                await interaction.response.send_message("❌ Ticket record not found.", ephemeral=True)
                 return
 
             ticket.claimed_by = str(interaction.user.id)
@@ -159,26 +199,24 @@ class TicketActionView(discord.ui.View):
             await session.commit()
 
         embed = interaction.message.embeds[0]
-        # remove previous claimed by field if exists
         for i, field in enumerate(embed.fields):
-            if field.name == "🙋‍♂️ Claimed By":
+            if field.name == "Claimed By":
                 embed.remove_field(i)
                 break
 
-        embed.add_field(name="🙋‍♂️ Claimed By", value=f"<@{interaction.user.id}>", inline=False)
+        embed.add_field(name="Claimed By", value=f"<@{interaction.user.id}>", inline=False)
         embed.color = discord.Color.gold()
         await interaction.message.edit(embed=embed)
 
-        await interaction.response.send_message(f"✅ تم استلام التذكرة بواسطة {interaction.user.mention}")
+        await interaction.response.send_message(f"✅ Ticket claimed by {interaction.user.mention}")
 
-    @discord.ui.button(label="Close | إغلاق التذكرة", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="ticket_close_btn")
+    @discord.ui.button(label="Close Ticket", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="ticket_close_btn")
     async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🔒 سيتم إغلاق التذكرة خلال 5 ثوانٍ وسحب الصلاحيات...", ephemeral=True)
-        await asyncio.sleep(5)
+        await interaction.response.send_message("🔒 Closing ticket and saving transcript...", ephemeral=True)
+        await asyncio.sleep(3)
 
         channel = interaction.channel
         if channel:
-            # Remove send messages for the owner
             owner = interaction.guild.get_member(int(self.owner_id))
             if owner:
                 await channel.set_permissions(owner, send_messages=False, read_messages=True)
@@ -208,12 +246,12 @@ class TicketActionView(discord.ui.View):
                 file = discord.File(StringIO(transcript), filename=f"ticket-{self.ticket_number}.txt")
                 log_embed = discord.Embed(title=f"🔒 Ticket #{self.ticket_number} Closed", color=0x888888)
                 log_embed.add_field(name="Ticket Number", value=str(self.ticket_number))
-                log_embed.add_field(name="Owner", value=f"<@{self.owner_id}>")
+                log_embed.add_field(name="Opened By", value=f"<@{self.owner_id}>")
                 log_embed.add_field(name="Closed By", value=interaction.user.mention, inline=False)
                 await log_channel.send(embed=log_embed, file=file)
 
-        await channel.send("🔒 تم إغلاق التذكرة. سيتم حذف القناة خلال 10 ثوانٍ...")
-        await asyncio.sleep(10)
+        await channel.send("🔒 Ticket closed. Deleting channel in 5 seconds...")
+        await asyncio.sleep(5)
         await channel.delete()
 
 
@@ -222,7 +260,7 @@ async def build_transcript(channel: discord.TextChannel, ticket_number: int, clo
     lines.append(f"=== Ticket #{ticket_number} Transcript ===")
     lines.append(f"Closed by: {closer.display_name} ({closer.id})")
     lines.append(f"Closed at: {datetime.utcnow().isoformat()}")
-    lines.append(f"--- Conversation Log ---")
+    lines.append("--- Conversation Log ---")
     lines.append("")
 
     async for msg in channel.history(limit=None, oldest_first=True):
@@ -261,12 +299,12 @@ async def ticket_setup(
             config.channel_id = str(channel.id)
             config.category_id = str(category.id)
             config.log_channel_id = str(log_channel.id)
-        
+
         await session.commit()
 
         embed = discord.Embed(
-            title="🎫 Open a Ticket | فتح تذكرة",
-            description="يرجى اختيار نوع التذكرة من القائمة بالأسفل للتحدث مع الإدارة أو الدعم الفني.",
+            title="🎫 Support Tickets",
+            description="Select a category from the dropdown menu below to open a private support ticket.",
             color=0xF2A93B
         )
         if interaction.guild.icon:
@@ -279,38 +317,11 @@ async def ticket_setup(
         await session.commit()
 
     embed_res = discord.Embed(
-        title="✅ تم إعداد نظام التذاكر",
-        description=f"تم إرسال اللوحة في {channel.mention}\nالتذاكر ستفتح تحت تصنيف: **{category.name}**",
+        title="✅ Ticket System Configured",
+        description=f"Panel deployed in {channel.mention}\nTickets Category: **{category.name}**",
         color=0x3CFF4A
     )
     await interaction.response.send_message(embed=embed_res, ephemeral=True)
-
-
-@bot.tree.command(name="ticket-stats", description="Show ticket statistics")
-@app_commands.checks.has_permissions(administrator=True)
-async def ticket_stats(interaction: discord.Interaction):
-    guild_id = str(interaction.guild_id)
-
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Ticket).where(Ticket.guild_id == guild_id)
-        )
-        tickets = result.scalars().all()
-
-    open_count = len([t for t in tickets if t.status == "open"])
-    claimed_count = len([t for t in tickets if t.status == "claimed"])
-    closed_count = len([t for t in tickets if t.status == "closed"])
-
-    embed = discord.Embed(
-        title="🎫 Ticket Statistics | إحصائيات التذاكر",
-        color=0xF2A93B
-    )
-    embed.add_field(name="Open", value=str(open_count), inline=True)
-    embed.add_field(name="Claimed", value=str(claimed_count), inline=True)
-    embed.add_field(name="Closed", value=str(closed_count), inline=True)
-    embed.add_field(name="Total", value=str(len(tickets)), inline=False)
-
-    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 @bot.event

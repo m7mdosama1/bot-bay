@@ -130,16 +130,16 @@ export default async function BotSettingsPage({
                 </span>
               </div>
               <p className="text-text-dim text-sm mt-0.5">
-                تخصيص وإعدادات البوت لسيرفر <strong className="text-white">{guild.name}</strong>
+                Manage and customize bot behavior for <strong className="text-white">{guild.name}</strong>
               </p>
             </div>
           </div>
 
           <Link
             href={`/dashboard/${guildId}`}
-            className="self-start sm:self-auto px-4 py-2 bg-white/5 hover:bg-white/10 text-text-dim hover:text-white font-mono text-xs rounded-xl border border-white/10 transition-all"
+            className="self-start sm:self-auto px-4 py-2 bg-white/5 hover:bg-white/10 text-text-dim hover:text-white font-mono text-xs rounded-xl border border-white/10 transition-all flex items-center gap-1.5"
           >
-            ← العودة للسيرفر
+            ← Back to Server
           </Link>
         </div>
 

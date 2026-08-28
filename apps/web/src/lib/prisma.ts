@@ -516,14 +516,13 @@ export async function getAllGuildsForAdmin() {
        g.name,
        g.icon_url as "iconUrl",
        g.owner_id as "ownerId",
-       g.created_at as "createdAt",
        COUNT(DISTINCT gb.id) FILTER (WHERE gb.is_active = true) as "activeBotsCount",
        COUNT(DISTINCT t.id) as "ticketsCount"
      FROM guilds g
      LEFT JOIN guild_bots gb ON g.id = gb.guild_id
      LEFT JOIN tickets t ON g.id = t.guild_id
-     GROUP BY g.id
-     ORDER BY g.created_at DESC`
+     GROUP BY g.id, g.name, g.icon_url, g.owner_id
+     ORDER BY g.name ASC`
   );
   return result.rows;
 }
@@ -552,6 +551,42 @@ export async function getAllBotsForAdmin() {
   return result.rows;
 }
 
+export async function createBotForAdmin(data: {
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  features: string;
+  clientId: string;
+  permissions?: string;
+  colorAccent?: string;
+  iconUrl?: string;
+}) {
+  const result = await db.query(
+    `INSERT INTO bots (id, slug, name, tagline, description, features, client_id, permissions, color_accent, icon_url, is_active, created_at)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW())
+     RETURNING *`,
+    [
+      data.slug,
+      data.name,
+      data.tagline,
+      data.description,
+      data.features || "[]",
+      data.clientId,
+      data.permissions || "8",
+      data.colorAccent || "#F2A93B",
+      data.iconUrl || null,
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function deleteBotForAdmin(botId: string) {
+  await db.query("DELETE FROM guild_bots WHERE bot_id = $1", [botId]);
+  const result = await db.query("DELETE FROM bots WHERE id = $1 RETURNING *", [botId]);
+  return result.rows[0] || null;
+}
+
 export async function toggleBotGlobalStatus(botId: string) {
   const result = await db.query(
     `UPDATE bots SET is_active = NOT is_active WHERE id = $1 RETURNING *`,
@@ -564,6 +599,7 @@ export async function updateBotDetails(botId: string, data: {
   name?: string;
   tagline?: string;
   description?: string;
+  features?: string;
   clientId?: string;
   permissions?: string;
   colorAccent?: string;
@@ -582,6 +618,10 @@ export async function updateBotDetails(botId: string, data: {
   if (data.description !== undefined) {
     params.push(data.description);
     updates.push(`description = $${params.length}`);
+  }
+  if (data.features !== undefined) {
+    params.push(data.features);
+    updates.push(`features = $${params.length}`);
   }
   if (data.clientId !== undefined) {
     params.push(data.clientId);
@@ -628,4 +668,5 @@ export async function getAllGlobalTickets(limit = 20, status?: string) {
   const result = await db.query(query, params);
   return result.rows;
 }
+
 

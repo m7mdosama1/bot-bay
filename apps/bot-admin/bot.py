@@ -7,11 +7,11 @@ from discord.ext import commands
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "packages", "db"))
-from shared_models import ModerationLog
+from shared_models import ModerationLog, Guild, GuildBot, Bot
 
 load_dotenv()
 
@@ -28,10 +28,46 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
+async def sync_guild_presence():
+    """Register admin bot in guild_bots for all connected servers."""
+    async with AsyncSessionLocal() as session:
+        bot_row = await session.execute(select(Bot).where(Bot.slug == "admin"))
+        db_bot = bot_row.scalar_one_or_none()
+        if not db_bot:
+            return
+
+        for guild in bot.guilds:
+            g_res = await session.execute(select(Guild).where(Guild.id == str(guild.id)))
+            g_obj = g_res.scalar_one_or_none()
+            icon_url = guild.icon.url if guild.icon else None
+            if not g_obj:
+                session.add(Guild(id=str(guild.id), name=guild.name, icon_url=icon_url, owner_id=str(guild.owner_id)))
+            else:
+                g_obj.name = guild.name
+                g_obj.icon_url = icon_url
+
+            gb_res = await session.execute(
+                select(GuildBot).where(GuildBot.guild_id == str(guild.id), GuildBot.bot_id == db_bot.id)
+            )
+            gb_obj = gb_res.scalar_one_or_none()
+            if not gb_obj:
+                session.add(GuildBot(guild_id=str(guild.id), bot_id=db_bot.id, is_active=True))
+            else:
+                gb_obj.is_active = True
+
+        await session.commit()
+
+
 @bot.event
 async def on_ready():
-    print(f"Iron Gavel is online as {bot.user}")
+    print(f"Aegis (Admin) is online as {bot.user}")
+    await sync_guild_presence()
     await bot.tree.sync()
+
+
+@bot.event
+async def on_guild_join(guild: discord.Guild):
+    await sync_guild_presence()
 
 
 async def log_moderation(guild_id: str, action: str, target_id: str, moderator_id: str, reason: str = None):
@@ -56,24 +92,24 @@ class ConfirmView(discord.ui.View):
         self.moderator = moderator
         self.reason = reason
 
-    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger, emoji="✅")
+    @discord.ui.button(label="Confirm Action", style=discord.ButtonStyle.danger, emoji="✅")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.moderator.id:
-            await interaction.response.send_message("Only the moderator who initiated this can confirm.", ephemeral=True)
+            await interaction.response.send_message("Only the moderator who initiated this action can confirm.", ephemeral=True)
             return
 
         try:
             if self.action == "ban":
                 await self.target.ban(reason=self.reason or "No reason provided")
-                msg = f"✅ Banned {self.target.mention}"
+                msg = f"🔨 Successfully banned {self.target.mention}"
             elif self.action == "kick":
                 await self.target.kick(reason=self.reason or "No reason provided")
-                msg = f"✅ Kicked {self.target.mention}"
+                msg = f"👢 Successfully kicked {self.target.mention}"
             elif self.action == "mute":
                 await self.target.timeout(timedelta(hours=1), reason=self.reason or "No reason provided")
-                msg = f"✅ Muted {self.target.mention} for 1 hour"
+                msg = f"🔇 Successfully timed out {self.target.mention} for 1 hour"
             elif self.action == "warn":
-                msg = f"⚠️ Warned {self.target.mention}"
+                msg = f"⚠️ Successfully warned {self.target.mention}"
 
             await log_moderation(
                 str(self.target.guild.id),
@@ -85,22 +121,19 @@ class ConfirmView(discord.ui.View):
 
             await interaction.response.send_message(msg, ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("❌ I don't have permission to do that.", ephemeral=True)
+            await interaction.response.send_message("❌ I do not have permission to execute this moderation action.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+            await interaction.response.send_message(f"❌ Error executing action: {e}", ephemeral=True)
 
         self.stop()
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="❌")
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("❌ Action cancelled.", ephemeral=True)
+        await interaction.response.send_message("Action cancelled.", ephemeral=True)
         self.stop()
 
-    async def on_timeout(self):
-        pass
 
-
-@bot.tree.command(name="ban", description="Ban a member")
+@bot.tree.command(name="ban", description="Ban a member from the server")
 @app_commands.checks.has_permissions(ban_members=True)
 async def ban(
     interaction: discord.Interaction,
@@ -109,14 +142,14 @@ async def ban(
 ):
     view = ConfirmView("ban", target, interaction.user, reason)
     embed = discord.Embed(
-        title="⚠️ Confirm Ban",
-        description=f"Ban {target.mention} from the server?\nReason: {reason or 'None'}",
+        title="🔨 Confirm Member Ban",
+        description=f"Are you sure you want to ban {target.mention}?\n**Reason:** {reason or 'No reason provided'}",
         color=0xEF4444,
     )
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
-@bot.tree.command(name="kick", description="Kick a member")
+@bot.tree.command(name="kick", description="Kick a member from the server")
 @app_commands.checks.has_permissions(kick_members=True)
 async def kick(
     interaction: discord.Interaction,
@@ -125,14 +158,14 @@ async def kick(
 ):
     view = ConfirmView("kick", target, interaction.user, reason)
     embed = discord.Embed(
-        title="⚠️ Confirm Kick",
-        description=f"Kick {target.mention} from the server?\nReason: {reason or 'None'}",
+        title="👢 Confirm Member Kick",
+        description=f"Are you sure you want to kick {target.mention}?\n**Reason:** {reason or 'No reason provided'}",
         color=0xF59E0B,
     )
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
-@bot.tree.command(name="mute", description="Mute a member")
+@bot.tree.command(name="mute", description="Timeout/Mute a member for 1 hour")
 @app_commands.checks.has_permissions(moderate_members=True)
 async def mute(
     interaction: discord.Interaction,
@@ -141,14 +174,14 @@ async def mute(
 ):
     view = ConfirmView("mute", target, interaction.user, reason)
     embed = discord.Embed(
-        title="⚠️ Confirm Mute",
-        description=f"Mute {target.mention} for 1 hour?\nReason: {reason or 'None'}",
+        title="🔇 Confirm Timeout",
+        description=f"Timeout {target.mention} for 1 hour?\n**Reason:** {reason or 'No reason provided'}",
         color=0xE5E7EB,
     )
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
-@bot.tree.command(name="warn", description="Warn a member")
+@bot.tree.command(name="warn", description="Issue a formal warning to a member")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def warn(
     interaction: discord.Interaction,
@@ -164,71 +197,10 @@ async def warn(
     )
 
     embed = discord.Embed(
-        title="⚠️ Warning",
-        description=f"{target.mention} has been warned.\nReason: {reason}",
+        title="⚠️ Official Warning Issued",
+        description=f"{target.mention} has been issued a warning.\n**Reason:** {reason}",
         color=0xF59E0B,
     )
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-
-@bot.tree.command(name="warnings", description="Check warnings for a member")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def warnings(interaction: discord.Interaction, target: discord.Member):
-    async with AsyncSessionLocal() as session:
-        from sqlalchemy import select
-        result = await session.execute(
-            select(ModerationLog).where(
-                ModerationLog.guild_id == str(interaction.guild_id),
-                ModerationLog.target_user_id == str(target.id),
-            )
-        )
-        logs = result.fetchall()
-
-    warning_count = len(logs)
-    embed = discord.Embed(
-        title=f"⚠️ Warnings for {target.display_name}",
-        color=0xF59E0B,
-    )
-    embed.add_field(name="Total Warnings", value=str(warning_count), inline=False)
-
-    if logs:
-        log_text = "\n".join([
-            f"{'⚠' if l.action == 'warn' else l.action} - {l.reason or 'N/A'} - <t:{int(l.created_at.timestamp())}:R>"
-            for l in logs
-        ])
-        embed.add_field(name="History", value=log_text, inline=False)
-
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-
-@bot.tree.command(name="modlog", description="View recent moderation logs")
-@app_commands.checks.has_permissions(administrator=True)
-async def modlog(interaction: discord.Interaction, limit: int = 10):
-    async with AsyncSessionLocal() as session:
-        from sqlalchemy import select
-        result = await session.execute(
-            select(ModerationLog)
-            .where(ModerationLog.guild_id == str(interaction.guild_id))
-            .order_by(ModerationLog.created_at.desc())
-            .limit(limit)
-        )
-        logs = result.fetchall()
-
-    embed = discord.Embed(
-        title="📋 Recent Moderation Logs",
-        color=0x3B82F6,
-    )
-
-    if not logs:
-        embed.description = "No moderation logs yet."
-    else:
-        for log in logs:
-            embed.add_field(
-                name=f"{log.action.capitalize()} - {log.target_user_id}",
-                value=f"Mod: {log.moderator_id}\nReason: {log.reason or 'N/A'}\nTime: <t:{int(log.created_at.timestamp())}:R>",
-                inline=False,
-            )
-
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
