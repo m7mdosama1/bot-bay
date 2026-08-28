@@ -27,9 +27,9 @@ function getPool() {
     const client = new Pool({
       connectionString,
       ssl,
-      max: 20,
+      max: 2,
       idleTimeoutMillis: 10000,
-      connectionTimeoutMillis: 15000,
+      connectionTimeoutMillis: 30000,
     });
 
     pool = client;

@@ -69,34 +69,39 @@ export default async function DashboardPage() {
     console.error("Failed to sync user guilds:", error);
   }
 
-  const guildsWithBots: DiscordGuildWithBots[] = await Promise.all(
-    guilds.map(async (guild) => {
-      try {
-        const guildRow = await getGuildById(guild.id, { withBots: true });
-        const dbGuildBots = guildRow?.guildBots || [];
+  const guildsWithBots: DiscordGuildWithBots[] = [];
+  for (let i = 0; i < guilds.length; i += 5) {
+    const batch = guilds.slice(i, i + 5);
+    const results = await Promise.all(
+      batch.map(async (guild) => {
+        try {
+          const guildRow = await getGuildById(guild.id, { withBots: true });
+          const dbGuildBots = guildRow?.guildBots || [];
 
-        return {
-          ...guild,
-          bots: dbGuildBots.map((gb: any) => ({
-            id: gb.id,
-            botId: gb.botId,
-            isActive: gb.isActive,
-            addedAt: gb.addedAt,
-            bot: {
-              id: gb.bot?.id || gb.botId,
-              name: gb.bot?.name || gb.botName,
-              slug: gb.bot?.slug || gb.botSlug,
-              colorAccent: gb.bot?.colorAccent || gb.botColorAccent,
-              iconUrl: gb.bot?.iconUrl || gb.botIconUrl,
-            },
-          })),
-        };
-      } catch (error) {
-        console.error("Failed to fetch guild bots:", error);
-        return { ...guild, bots: [] };
-      }
-    })
-  );
+          return {
+            ...guild,
+            bots: dbGuildBots.map((gb: any) => ({
+              id: gb.id,
+              botId: gb.botId,
+              isActive: gb.isActive,
+              addedAt: gb.addedAt,
+              bot: {
+                id: gb.bot?.id || gb.botId,
+                name: gb.bot?.name || gb.botName,
+                slug: gb.bot?.slug || gb.botSlug,
+                colorAccent: gb.bot?.colorAccent || gb.botColorAccent,
+                iconUrl: gb.bot?.iconUrl || gb.botIconUrl,
+              },
+            })),
+          };
+        } catch (error) {
+          console.error("Failed to fetch guild bots:", error);
+          return { ...guild, bots: [] };
+        }
+      })
+    );
+    guildsWithBots.push(...results);
+  }
 
   const managedGuilds = guildsWithBots.filter((g) => {
     if (g.owner) return true;
