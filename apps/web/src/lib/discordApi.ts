@@ -30,7 +30,7 @@ export interface DiscordGuildWithBots extends DiscordGuild {
 
 export async function fetchUserGuilds(accessToken: string): Promise<DiscordGuild[]> {
   let attempts = 0;
-  const maxAttempts = 3;
+  const maxAttempts = 7;
 
   while (attempts < maxAttempts) {
     attempts++;
@@ -38,6 +38,7 @@ export async function fetchUserGuilds(accessToken: string): Promise<DiscordGuild
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      cache: 'no-store'
     });
 
     if (response.ok) {
@@ -52,7 +53,7 @@ export async function fetchUserGuilds(accessToken: string): Promise<DiscordGuild
         const retryAfterSec = errorJson.retry_after || 1;
         if (attempts < maxAttempts) {
           console.warn(`Rate limited by Discord. Retrying after ${retryAfterSec}s...`);
-          await new Promise((resolve) => setTimeout(resolve, retryAfterSec * 1000 + 100)); // Add 100ms buffer
+          await new Promise((resolve) => setTimeout(resolve, retryAfterSec * 1000 + 500)); // Add 500ms buffer
           continue;
         }
       } catch (e) {
