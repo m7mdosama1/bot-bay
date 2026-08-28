@@ -103,7 +103,8 @@ export default async function DashboardPage() {
     if (!g.permissions) return false;
     try {
       const perms = BigInt(g.permissions);
-      return (perms & 8n) === 8n; // 8 is Administrator
+      const adminPerm = BigInt(8);
+      return (perms & adminPerm) === adminPerm; // 8 is Administrator
     } catch {
       return false;
     }
