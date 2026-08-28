@@ -8,7 +8,7 @@ from discord.ext import commands
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import insert, select
+from sqlalchemy import text, select
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "packages", "db"))
@@ -45,12 +45,20 @@ async def welcome_setup(
 ):
     async with AsyncSessionLocal() as session:
         await session.execute(
-            insert(WelcomeConfig).values(
-                guild_id=str(interaction.guild_id),
-                category_id=str(category.id),
-                message_text=message,
-                delete_after_min=delete_after,
-            ).prefix_with("INSERT OR REPLACE")
+            text("""
+                INSERT INTO welcome_configs (id, guild_id, category_id, message_text, delete_after_min)
+                VALUES (gen_random_uuid()::varchar, :guild_id, :category_id, :message_text, :delete_after_min)
+                ON CONFLICT (guild_id) DO UPDATE SET
+                    category_id = EXCLUDED.category_id,
+                    message_text = EXCLUDED.message_text,
+                    delete_after_min = EXCLUDED.delete_after_min
+            """),
+            {
+                "guild_id": str(interaction.guild_id),
+                "category_id": str(category.id),
+                "message_text": message,
+                "delete_after_min": delete_after,
+            }
         )
         await session.commit()
 
