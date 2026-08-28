@@ -29,18 +29,43 @@ export interface DiscordGuildWithBots extends DiscordGuild {
 }
 
 export async function fetchUserGuilds(accessToken: string): Promise<DiscordGuild[]> {
-  const response = await fetch("https://discord.com/api/users/@me/guilds", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  let attempts = 0;
+  const maxAttempts = 3;
 
-  if (!response.ok) {
+  while (attempts < maxAttempts) {
+    attempts++;
+    const response = await fetch("https://discord.com/api/users/@me/guilds", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (response.ok) {
+      return response.json();
+    }
+
+    if (response.status === 429) {
+      const errorText = await response.text().catch(() => "{}");
+      try {
+        const errorJson = JSON.parse(errorText);
+        // Discord API retry_after is in seconds
+        const retryAfterSec = errorJson.retry_after || 1;
+        if (attempts < maxAttempts) {
+          console.warn(`Rate limited by Discord. Retrying after ${retryAfterSec}s...`);
+          await new Promise((resolve) => setTimeout(resolve, retryAfterSec * 1000 + 100)); // Add 100ms buffer
+          continue;
+        }
+      } catch (e) {
+        throw new Error(`Failed to fetch guilds: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      throw new Error(`Failed to fetch guilds: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
     const errorText = await response.text().catch(() => "Unknown error");
     throw new Error(`Failed to fetch guilds: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
-  return response.json();
+  throw new Error("Failed to fetch guilds: Max attempts exceeded");
 }
 
 export async function fetchGuildDetails(guildId: string, accessToken: string) {
