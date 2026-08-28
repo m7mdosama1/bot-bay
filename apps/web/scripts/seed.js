@@ -125,11 +125,7 @@ async function seed() {
   try {
     const result = await pool.query("SELECT COUNT(*) FROM bots");
     const count = parseInt(result.rows[0].count, 10);
-
-    if (count > 0) {
-      console.log(`Bots already seeded (${count} bots found)`);
-      return;
-    }
+    console.log(`Currently ${count} bots in DB. Forcing a re-seed...`);
 
     for (const bot of bots) {
       await pool.query(
