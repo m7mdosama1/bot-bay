@@ -98,7 +98,16 @@ export default async function DashboardPage() {
     })
   );
 
-  const managedGuilds = guildsWithBots.filter((g) => g.owner || g.permissions.includes("8"));
+  const managedGuilds = guildsWithBots.filter((g) => {
+    if (g.owner) return true;
+    if (!g.permissions) return false;
+    try {
+      const perms = BigInt(g.permissions);
+      return (perms & 8n) === 8n; // 8 is Administrator
+    } catch {
+      return false;
+    }
+  });
 
   return (
     <div className="min-h-screen bg-bg-void text-text">
