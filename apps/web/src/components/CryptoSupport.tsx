@@ -68,7 +68,7 @@ const CryptoIcons = {
 const cryptoOptions = [
   { symbol: "BTC-Bitcoin Network", icon: CryptoIcons.btc, address: "1BHVoBL...", full: "1BHVoBLC4VsnV3BUDDxutamKf2bTMKhihb" },
   { symbol: "ETH-Ethereum Network", icon: CryptoIcons.eth, address: "0x9efa3...", full: "0x9efa3714cfd2d70eab9aabf34989320e79cbec6c" },
-  { symbol: "USDT-TRC20 Network", icon: CryptoIcons.usdc, address: "TUq4R5...", full: "TUq4R5Np6Uo26vNwDd8Yc1PfAgoUsdvM9t" },
+  { symbol: "USDT-TRC20 Network", icon: CryptoIcons.usdt, address: "TUq4R5...", full: "TUq4R5Np6Uo26vNwDd8Yc1PfAgoUsdvM9t" },
 ];
 
 export function CryptoSupport() {
