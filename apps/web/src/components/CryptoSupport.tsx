@@ -58,7 +58,7 @@ const CryptoIcons = {
       <path d="M16 2.20001L3.6499 19.5L16 26.6L28.3501 19.5L16 2.20001Z" fill="#627EEA" />
     </svg>
   ),
-  usdc: (
+  usdt: (
     <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M16 0C7.1634 0 0 7.1634 0 16C0 24.8366 7.1634 32 16 32C24.8366 32 32 24.8366 32 16C32 7.1634 24.8366 0 16 0ZM16 2.28571C23.52 2.28571 29.7143 8.47999 29.7143 16C29.7143 23.52 23.52 29.7143 16 29.7143C8.47999 29.7143 2.28571 23.52 2.28571 16C2.28571 8.47999 8.47999 2.28571 16 2.28571Z" fill="#277559" />
     </svg>
@@ -66,9 +66,9 @@ const CryptoIcons = {
 };
 
 const cryptoOptions = [
-  { symbol: "BTC", icon: CryptoIcons.btc, address: "bc1qxy2k...", full: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa" },
-  { symbol: "ETH", icon: CryptoIcons.eth, address: "0x742d...", full: "0x742d35Cc6634C0532925a3b8409fe93F6aD8a1e" },
-  { symbol: "USDC", icon: CryptoIcons.usdc, address: "0x742d...", full: "0x742d35Cc6634C0532925a3b8409fe93F6aD8a1e" },
+  { symbol: "BTC-Bitcoin Network", icon: CryptoIcons.btc, address: "1BHVoBL...", full: "1BHVoBLC4VsnV3BUDDxutamKf2bTMKhihb" },
+  { symbol: "ETH-Ethereum Network", icon: CryptoIcons.eth, address: "0x9efa3...", full: "0x9efa3714cfd2d70eab9aabf34989320e79cbec6c" },
+  { symbol: "USDT-TRC20 Network", icon: CryptoIcons.usdc, address: "TUq4R5...", full: "TUq4R5Np6Uo26vNwDd8Yc1PfAgoUsdvM9t" },
 ];
 
 export function CryptoSupport() {
