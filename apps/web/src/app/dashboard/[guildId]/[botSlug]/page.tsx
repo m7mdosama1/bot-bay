@@ -8,6 +8,8 @@ import {
   getGiveawaysByGuild,
   getRouletteConfig,
   getModerationLogsByGuild,
+  getPulseConfig,
+  getAscendConfig,
 } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -20,6 +22,7 @@ import { AdminLogsView } from "@/components/dashboard/AdminLogsView";
 import { WelcomeSettings } from "@/components/dashboard/WelcomeSettings";
 import { TicketSettings } from "@/components/dashboard/TicketSettings";
 import { VerificationSettings } from "@/components/dashboard/VerificationSettings";
+import { BotAutomationSettings } from "@/components/dashboard/BotAutomationSettings";
 
 export default async function BotSettingsPage({
   params,
@@ -72,6 +75,8 @@ export default async function BotSettingsPage({
   let giveaways: any[] = [];
   let moderationLogs: any[] = [];
   let ticketStats = { open: 0, closed: 0, total: 0 };
+  let pulseConfig = null;
+  let ascendConfig = null;
 
   try {
     if (botSlug === "welcome") {
@@ -89,6 +94,10 @@ export default async function BotSettingsPage({
       rouletteConfig = await getRouletteConfig(guildId);
     } else if (botSlug === "admin") {
       moderationLogs = await getModerationLogsByGuild(guildId);
+    } else if (botSlug === "pulse") {
+      pulseConfig = await getPulseConfig(guildId);
+    } else if (botSlug === "ascend") {
+      ascendConfig = await getAscendConfig(guildId);
     }
   } catch (error) {
     console.error("Failed to fetch bot config:", error);
@@ -163,6 +172,12 @@ export default async function BotSettingsPage({
               guildId={guildId}
               config={verificationConfig}
             />
+          )}
+          {botSlug === "pulse" && pulseConfig && (
+            <BotAutomationSettings guildId={guildId} botSlug="pulse" config={pulseConfig} />
+          )}
+          {botSlug === "ascend" && ascendConfig && (
+            <BotAutomationSettings guildId={guildId} botSlug="ascend" config={ascendConfig} />
           )}
         </div>
       </main>

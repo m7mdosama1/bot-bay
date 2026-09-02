@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getBotBySlug } from "@/lib/prisma";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { useMemo } from "react";
+import Image from "next/image";
 
 interface Bot {
   id: string;
@@ -366,18 +366,6 @@ const botDetailsMap: Record<string, NonNullBotDetail["botDetails"]> = {
   },
 };
 
-function getBotEmoji(slug: string): string {
-  const emojis: Record<string, string> = {
-    verification: "🛡️",
-    giveaway: "🎁",
-    roulette: "🎰",
-    admin: "⚖️",
-    welcome: "👋",
-    ticket: "🎫",
-  };
-  return emojis[slug] || "🤖";
-}
-
 function permissionLabels(permissions: string): string[] {
   if (permissions === "8") return ["Administrator"];
   const perms: string[] = [];
@@ -416,7 +404,6 @@ export default async function BotDetailPage({
 
   const features = JSON.parse(bot.features) as string[];
   const accentColor = bot.colorAccent;
-  const emoji = getBotEmoji(bot.slug);
   const details = botDetailsMap[bot.slug];
   const addUrl = `https://discord.com/api/oauth2/authorize?client_id=${bot.clientId}&permissions=${bot.permissions}&scope=bot%20applications.commands`;
   const permLabels = permissionLabels(bot.permissions);
@@ -431,7 +418,7 @@ export default async function BotDetailPage({
           <div className="rounded-2xl bg-card-bg border-2 p-8 md:p-12" style={{ borderColor: accentColor + "40" }}>
             <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
               <div
-                className="w-24 h-24 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0"
+                className="w-24 h-24 rounded-2xl flex items-center justify-center text-4xl shrink-0"
                 style={{
                   backgroundColor: accentColor + "20",
                   borderColor: accentColor,
@@ -439,13 +426,12 @@ export default async function BotDetailPage({
                   borderStyle: "solid",
                 }}
               >
-                {emoji}
+                <Image src={`/bots/${bot.slug}.png`} alt="" width={96} height={96} className="h-full w-full object-cover rounded-2xl" />
               </div>
 
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="font-display text-3xl md:text-4xl font-bold text-white">{bot.name}</h1>
-                  <span className="text-3xl">{emoji}</span>
                 </div>
                 <p className="text-lg text-text-dim mb-4">{bot.tagline}</p>
                 <p className="text-text leading-relaxed mb-4">{bot.description}</p>
@@ -461,7 +447,7 @@ export default async function BotDetailPage({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 flex-shrink-0">
+              <div className="flex flex-col gap-3 shrink-0">
                 <a
                   href={addUrl}
                   target="_blank"
@@ -533,7 +519,7 @@ export default async function BotDetailPage({
               {details.steps.map((step, i) => (
                 <div key={step.title} className="flex gap-4">
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-display font-bold text-sm"
+                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-display font-bold text-sm"
                     style={{ backgroundColor: accentColor + "20", color: accentColor }}
                   >
                     {i + 1}
@@ -617,7 +603,7 @@ export default async function BotDetailPage({
           <section className="mb-16">
             <div className="rounded-2xl bg-card-bg border border-line p-8">
               <blockquote className="text-xl md:text-2xl text-white italic mb-4 leading-relaxed">
-                "{details.testimonial.content}"
+                &quot;{details.testimonial.content}&quot;
               </blockquote>
               <div className="flex items-center gap-3">
                 <div

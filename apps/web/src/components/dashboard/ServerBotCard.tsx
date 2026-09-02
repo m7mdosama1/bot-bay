@@ -2,6 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+
+const botArtwork: Record<string, string> = {
+  verification: "/bots/verification.png",
+  giveaway: "/bots/giveaway.png",
+  roulette: "/bots/roulette.png",
+  admin: "/bots/admin.png",
+  welcome: "/bots/welcome.png",
+  ticket: "/bots/ticket.png",
+  beacon: "/bots/beacon.png",
+  pulse: "/bots/pulse.png",
+  ascend: "/bots/ascend.png",
+};
 
 interface BotData {
   id: string;
@@ -66,10 +79,10 @@ export function ServerBotCard({ bot, guildId }: Props) {
   }
 
   return (
-    <div className="card-bg rounded-3xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 flex flex-col justify-between group shadow-xl hover:shadow-2xl relative overflow-hidden backdrop-blur-md">
+    <div className="dashboard-bot-card card-bg rounded-2xl p-5 border border-white/10 transition-all duration-300 flex flex-col justify-between group relative overflow-hidden">
       {/* Accent glow line on top */}
       <div
-        className="absolute top-0 left-0 right-0 h-1.5 opacity-80 group-hover:opacity-100 transition-opacity"
+        className="absolute top-0 left-0 right-0 h-0.5 opacity-80 group-hover:opacity-100 transition-opacity"
         style={{ backgroundColor: bot.colorAccent || "#F2A93B" }}
       />
 
@@ -78,14 +91,14 @@ export function ServerBotCard({ bot, guildId }: Props) {
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-3.5">
             <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold font-display shadow-md flex-shrink-0 transition-transform group-hover:scale-105"
+              className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center font-bold font-display shadow-md shrink-0 transition-transform group-hover:scale-105"
               style={{
                 backgroundColor: `${bot.colorAccent || "#F2A93B"}20`,
                 border: `1px solid ${bot.colorAccent || "#F2A93B"}40`,
                 color: bot.colorAccent || "#F2A93B",
               }}
             >
-              {bot.name ? bot.name.charAt(0) : "B"}
+              <Image src={botArtwork[bot.slug] || "/favicon.svg"} alt="" width={56} height={56} className="h-full w-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -124,12 +137,12 @@ export function ServerBotCard({ bot, guildId }: Props) {
         {/* Server Status Badge */}
         <div className="flex items-center gap-2 mb-3">
           {bot.isLinked ? (
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono flex items-center gap-1.5">
+            <span className="dashboard-status dashboard-status-online">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               Connected to Server
             </span>
           ) : (
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[11px] font-mono flex items-center gap-1.5">
+            <span className="dashboard-status dashboard-status-pending">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
               Invite Required
             </span>
@@ -160,7 +173,7 @@ export function ServerBotCard({ bot, guildId }: Props) {
       <div className="flex items-center gap-2.5 pt-4 border-t border-white/5">
         <Link
           href={`/dashboard/${guildId}/${bot.slug}`}
-          className="flex-1 text-center py-2.5 px-4 bg-amber-signal hover:bg-amber-signal/90 text-black font-mono text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
+          className="dashboard-card-primary flex-1 text-center py-2.5 px-4 font-mono text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5"
         >
           <span>⚙️</span> Customize Settings
         </Link>
@@ -169,7 +182,7 @@ export function ServerBotCard({ bot, guildId }: Props) {
           href={inviteUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="py-2.5 px-3.5 bg-white/5 hover:bg-white/15 text-white font-mono text-xs font-semibold rounded-xl border border-white/10 transition-all flex items-center gap-1"
+          className="py-2.5 px-3.5 bg-white/5 hover:bg-white/15 text-white font-mono text-xs font-semibold rounded-lg border border-white/10 transition-all flex items-center gap-1"
           title="Invite bot to this server"
         >
           <span>➕</span> Invite

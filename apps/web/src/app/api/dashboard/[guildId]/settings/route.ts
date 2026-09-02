@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import {
   upsertWelcomeConfig,
   upsertTicketConfig,
   upsertVerificationConfig,
   upsertRouletteConfig,
+  getGuildById,
+  upsertPulseConfig,
+  upsertAscendConfig,
 } from "@/lib/prisma";
 
 export async function POST(
@@ -11,6 +16,11 @@ export async function POST(
   { params }: { params: Promise<{ guildId: string }> }
 ) {
   const { guildId } = await params;
+  const session = await getServerSession(authOptions);
+  const guild = await getGuildById(guildId);
+  if (!session?.user?.id || !guild || guild.owner_id !== session.user.id) {
+    return NextResponse.json({ error: "Only the server owner can change bot settings" }, { status: 403 });
+  }
   const body = await req.json();
   const { botSlug, ...data } = body;
 
@@ -32,6 +42,17 @@ export async function POST(
           maxBet: data.maxBet || 10000,
           currencyName: data.currencyName || "Coins",
           enabled: data.enabled !== false,
+        });
+        break;
+      case "pulse":
+        result = await upsertPulseConfig(guildId, data.enabled !== false);
+        break;
+      case "ascend":
+        result = await upsertAscendConfig(guildId, {
+          enabled: data.enabled !== false,
+          xpCooldownSeconds: Math.max(10, Number(data.xpCooldownSeconds) || 60),
+          xpPerMessageMin: Math.max(1, Number(data.xpPerMessageMin) || 15),
+          xpPerMessageMax: Math.max(Number(data.xpPerMessageMin) || 15, Number(data.xpPerMessageMax) || 25),
         });
         break;
       default:

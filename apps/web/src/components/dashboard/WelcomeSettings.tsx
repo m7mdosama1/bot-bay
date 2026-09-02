@@ -4,7 +4,7 @@ import { useState } from "react";
 
 interface Props {
   guildId: string;
-  config: any;
+  config?: { channel_id?: string | null; role_id?: string | null; message_text?: string | null; embed_color?: string | null; show_avatar?: boolean | null; show_banner?: boolean | null; } | null;
 }
 
 export function WelcomeSettings({ guildId, config }: Props) {
@@ -51,8 +51,8 @@ export function WelcomeSettings({ guildId, config }: Props) {
       <div className="flex items-center gap-3.5 mb-2">
         <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-2xl">👋</div>
         <div>
-          <h3 className="font-display text-xl font-bold text-white">Threshold — Welcome Bot Settings</h3>
-          <p className="text-text-dim text-sm">Configure automated greetings, rules acceptance buttons, and verified auto-roles</p>
+          <h3 className="font-display text-xl font-bold text-white">Welcome Bot Settings</h3>
+          <p className="text-text-dim text-sm">Configure automated greetings, rule acceptance, and verification role for new members.</p>
         </div>
       </div>
 
@@ -84,7 +84,7 @@ export function WelcomeSettings({ guildId, config }: Props) {
             placeholder="e.g. 1234567890123456789"
             className="w-full px-4 py-2.5 bg-bg-raised border border-white/10 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-amber-signal/50 transition-all placeholder:text-white/20"
           />
-          <p className="text-[11px] text-text-dim">The role granted when the member clicks "Accept Rules".</p>
+          <p className="text-[11px] text-text-dim">The role granted when the member clicks &quot;Accept Rules&quot;.</p>
         </div>
 
         {/* Embed Color */}

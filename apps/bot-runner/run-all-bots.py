@@ -53,6 +53,21 @@ BOTS = [
         "dir": "apps/bot-welcome",
         "token_env": "BOT_WELCOME_TOKEN",
     },
+    {
+        "name": "Beacon (bot-beacon)",
+        "dir": "apps/bot-beacon",
+        "token_env": "BOT_BEACON_TOKEN",
+    },
+    {
+        "name": "Pulse (bot-pulse)",
+        "dir": "apps/bot-pulse",
+        "token_env": "BOT_PULSE_TOKEN",
+    },
+    {
+        "name": "Ascend (bot-ascend)",
+        "dir": "apps/bot-ascend",
+        "token_env": "BOT_ASCEND_TOKEN",
+    },
 ]
 
 shutdown_event = threading.Event()
@@ -153,7 +168,7 @@ def run_bot(bot):
 def main():
     print("=" * 60, flush=True)
     print("  Bot Bay — Unified Bot Runner", flush=True)
-    print("  Running 6 Discord bots in one process pool", flush=True)
+    print("  Running 9 Discord bots in one process pool", flush=True)
     print("=" * 60, flush=True)
 
     # Verify at least one token is set
@@ -178,6 +193,8 @@ def main():
         import asyncio
         from sqlalchemy.ext.asyncio import create_async_engine
         from shared_models import Base
+        sys.path.insert(0, str(ROOT))
+        from shared.db import models  # noqa: F401
 
         pg_url = database_url
         if pg_url.startswith("postgres://"):

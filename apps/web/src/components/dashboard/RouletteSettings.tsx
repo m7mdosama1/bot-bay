@@ -55,12 +55,8 @@ export function RouletteSettings({ guild }: Props) {
           🎡
         </div>
         <div>
-          <h3 className="font-display text-xl font-bold text-white">
-            Fortune Wheel — Roulette & Economy
-          </h3>
-          <p className="text-text-dim text-sm">
-            Customize server virtual currency, betting limits, and casino mini-games
-          </p>
+          <h3 className="font-display text-xl font-bold text-white">Roulette Settings</h3>
+          <p className="text-text-dim text-sm">Configure virtual currency, betting limits, and enable/disable the roulette game.</p>
         </div>
       </div>
 

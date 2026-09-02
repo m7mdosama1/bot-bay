@@ -10,6 +10,28 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import { ServerBotCard } from "@/components/dashboard/ServerBotCard";
 import { notFound } from "next/navigation";
 
+interface GuildView {
+  id: string;
+  name: string;
+  icon_url?: string | null;
+}
+
+interface BotView {
+  id: string;
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  features: string;
+  clientId: string;
+  permissions: string;
+  iconUrl: string | null;
+  colorAccent: string;
+  isGlobalActive: boolean;
+  isEnabledInGuild: boolean | null;
+  isLinked: boolean;
+}
+
 export default async function GuildDashboardPage({
   params,
 }: {
@@ -37,8 +59,8 @@ export default async function GuildDashboardPage({
     );
   }
 
-  let guild: any;
-  let allBots: any[] = [];
+  let guild: GuildView | null = null;
+  let allBots: BotView[] = [];
   let stats = {
     activeBots: 0,
     totalTickets: 0,
@@ -66,15 +88,15 @@ export default async function GuildDashboardPage({
   }
 
   return (
-    <div className="min-h-screen bg-bg-void text-text">
+    <div className="dashboard-shell min-h-screen bg-bg-void text-text">
       <SiteHeader />
 
-      <main className="pt-24 container mx-auto px-6 py-10 max-w-7xl">
+      <main className="dashboard-main pt-24 container mx-auto px-6 py-10 max-w-7xl">
+        <div className="dashboard-breadcrumb"><span>WORKSPACE</span><span>/</span><strong>{guild.name}</strong></div>
         {/* Server Header Banner */}
-        <div className="relative rounded-3xl p-8 mb-10 overflow-hidden border border-white/10 bg-gradient-to-br from-bg-raised/80 via-bg-raised/40 to-bg-void shadow-2xl backdrop-blur-md">
+        <div className="dashboard-server-head relative p-8 mb-10 overflow-hidden">
           {/* Subtle glow in background */}
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-amber-signal/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-0 right-0 w-64 h-64 border border-amber-signal/10 rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
@@ -124,29 +146,29 @@ export default async function GuildDashboardPage({
           </div>
 
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-white/5">
-            <div className="bg-bg-void/50 rounded-2xl p-4 border border-white/5 shadow-sm">
+          <div className="dashboard-stats mt-8 pt-6 border-t border-white/5">
+              <div className="dashboard-stats-item bg-bg-void/50 rounded-2xl p-4 border border-white/5 shadow-sm">
               <div className="text-xs font-mono text-text-dim">Active Bots</div>
               <div className="text-2xl font-bold font-mono text-emerald-400 mt-1">
                 {stats.activeBots} <span className="text-xs text-text-dim font-normal">/ {allBots.length} Total</span>
               </div>
             </div>
 
-            <div className="bg-bg-void/50 rounded-2xl p-4 border border-white/5 shadow-sm">
+            <div className="dashboard-stats-item bg-bg-void/50 rounded-2xl p-4 border border-white/5 shadow-sm">
               <div className="text-xs font-mono text-text-dim">Open Support Tickets</div>
               <div className="text-2xl font-bold font-mono text-blue-400 mt-1">
                 {stats.openTickets} <span className="text-xs text-text-dim font-normal">({stats.totalTickets} Total)</span>
               </div>
             </div>
 
-            <div className="bg-bg-void/50 rounded-2xl p-4 border border-white/5 shadow-sm">
+            <div className="dashboard-stats-item bg-bg-void/50 rounded-2xl p-4 border border-white/5 shadow-sm">
               <div className="text-xs font-mono text-text-dim">Active Giveaways</div>
               <div className="text-2xl font-bold font-mono text-amber-400 mt-1">
                 {stats.activeGiveaways}
               </div>
             </div>
 
-            <div className="bg-bg-void/50 rounded-2xl p-4 border border-white/5 shadow-sm">
+            <div className="dashboard-stats-item bg-bg-void/50 rounded-2xl p-4 border border-white/5 shadow-sm">
               <div className="text-xs font-mono text-text-dim">Moderation Logs</div>
               <div className="text-2xl font-bold font-mono text-violet-400 mt-1">
                 {stats.modLogsCount}
@@ -156,23 +178,23 @@ export default async function GuildDashboardPage({
         </div>
 
         {/* Section: Bots Management */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="dashboard-section-head mb-6 flex items-center justify-between">
           <div>
             <h2 className="font-display text-2xl font-bold text-white flex items-center gap-2">
-              <span>🤖</span> Available Discord Bots
+              Bot fleet
             </h2>
             <p className="text-text-dim text-sm mt-1">
               Enable, customize, and invite any bot to your server with one click
             </p>
           </div>
-          <span className="text-xs font-mono px-3.5 py-1.5 rounded-full bg-white/5 text-text-dim border border-white/10">
+            <span className="dashboard-count">
             {allBots.length} Bots Available
           </span>
         </div>
 
         {/* Bots Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {allBots.map((bot: any) => (
+          {allBots.map((bot) => (
             <ServerBotCard
               key={bot.id}
               bot={bot}

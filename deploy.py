@@ -32,6 +32,9 @@ BOT_RUNNER = {
         "BOT_ADMIN_TOKEN",
         "BOT_WELCOME_TOKEN",
         "BOT_TICKET_TOKEN",
+        "BOT_BEACON_TOKEN",
+        "BOT_PULSE_TOKEN",
+        "BOT_ASCEND_TOKEN",
         "DATABASE_URL",
     ],
 }
@@ -49,6 +52,9 @@ ALL_BOTS = [
     "bot-admin",
     "bot-ticket",
     "bot-welcome",
+    "bot-beacon",
+    "bot-pulse",
+    "bot-ascend",
 ]
 
 

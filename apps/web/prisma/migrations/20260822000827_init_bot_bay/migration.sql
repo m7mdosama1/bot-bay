@@ -4,7 +4,7 @@ CREATE TABLE "users" (
     "username" TEXT NOT NULL,
     "avatar" TEXT,
     "is_admin" BOOLEAN NOT NULL DEFAULT false,
-    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateTable
@@ -20,7 +20,7 @@ CREATE TABLE "bots" (
     "icon_url" TEXT,
     "color_accent" TEXT NOT NULL DEFAULT '#F2A93B',
     "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateTable
@@ -36,7 +36,7 @@ CREATE TABLE "guild_bots" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "guild_id" TEXT NOT NULL,
     "bot_id" TEXT NOT NULL,
-    "added_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "added_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     CONSTRAINT "guild_bots_guild_id_fkey" FOREIGN KEY ("guild_id") REFERENCES "guilds" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "guild_bots_bot_id_fkey" FOREIGN KEY ("bot_id") REFERENCES "bots" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
@@ -50,10 +50,10 @@ CREATE TABLE "giveaways" (
     "message_id" TEXT,
     "prize" TEXT NOT NULL,
     "winners_count" INTEGER NOT NULL DEFAULT 1,
-    "ends_at" DATETIME NOT NULL,
+    "ends_at" TIMESTAMP NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'active',
     "created_by" TEXT NOT NULL,
-    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "giveaways_guild_id_fkey" FOREIGN KEY ("guild_id") REFERENCES "guilds" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
@@ -76,7 +76,7 @@ CREATE TABLE "moderation_logs" (
     "target_user_id" TEXT NOT NULL,
     "moderator_id" TEXT NOT NULL,
     "reason" TEXT,
-    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "moderation_logs_guild_id_fkey" FOREIGN KEY ("guild_id") REFERENCES "guilds" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
@@ -100,7 +100,7 @@ CREATE TABLE "verification_attempts" (
     "status" TEXT NOT NULL,
     "ip_hash" TEXT,
     "fingerprint_hash" TEXT,
-    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "verification_attempts_guild_id_fkey" FOREIGN KEY ("guild_id") REFERENCES "guilds" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
@@ -127,9 +127,9 @@ CREATE TABLE "tickets" (
     "closed_by" TEXT,
     "status" TEXT NOT NULL DEFAULT 'open',
     "transcript_content" TEXT,
-    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "claimed_at" DATETIME,
-    "closed_at" DATETIME,
+    "created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "claimed_at" TIMESTAMP,
+    "closed_at" TIMESTAMP,
     CONSTRAINT "tickets_guild_id_fkey" FOREIGN KEY ("guild_id") REFERENCES "guilds" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 

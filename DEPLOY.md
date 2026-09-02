@@ -1,6 +1,6 @@
 # 🚀 Bot Bay — Deployment Guide
 
-Deploy all 6 Discord bots to **Railway** and the web dashboard to **Vercel** with a single command.
+Deploy all 9 Discord bots to **Railway** and the web dashboard to **Vercel** with a single command.
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@ python deploy.py deploy-all
 ```
 
 This deploys:
-- **bot-runner** → **Railway** (all 6 Discord bots in a single service — stays within the 5-service limit)
+- **bot-runner** → **Railway** (all 9 Discord bots in a single service — stays within the 5-service limit)
 - **web dashboard** → **Vercel** (production deployment)
 
 ---
@@ -84,6 +84,9 @@ Set these in the Railway Dashboard → bot-runner service → Settings → Envir
 | `BOT_ADMIN_TOKEN` | Discord token for Iron Gavel |
 | `BOT_WELCOME_TOKEN` | Discord token for Threshold |
 | `BOT_TICKET_TOKEN` | Discord token for Deskline |
+| `BOT_BEACON_TOKEN` | Discord token for Beacon notifications |
+| `BOT_PULSE_TOKEN` | Discord token for Pulse analytics |
+| `BOT_ASCEND_TOKEN` | Discord token for Ascend XP and levels |
 | `DATABASE_URL` | PostgreSQL URL (auto-set by Railway PG plugin) |
 | `IPQUALITYSCORE_API_KEY` | (optional) IPQualityScore API key |
 | `PROXYCHECK_API_KEY` | (optional) ProxyCheck.io API key |
@@ -105,6 +108,17 @@ In the Vercel Dashboard → Project → Settings → Environment Variables:
 | `BOT_ADMIN_CLIENT_ID` | Discord bot application ID |
 | `BOT_WELCOME_CLIENT_ID` | Discord bot application ID |
 | `BOT_TICKET_CLIENT_ID` | Discord bot application ID |
+| `BOT_BEACON_CLIENT_ID` | Discord bot application ID |
+| `BOT_PULSE_CLIENT_ID` | Discord bot application ID |
+| `BOT_ASCEND_CLIENT_ID` | Discord bot application ID |
+| `PUBLIC_WEB_URL` | Public web URL used in private roulette links |
+| `BEACON_POLL_SECONDS` | Beacon feed polling interval |
+| `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` | Twitch Helix app credentials |
+| `KICK_CLIENT_ID` / `KICK_CLIENT_SECRET` | Kick API app credentials |
+| `XP_COOLDOWN_SECONDS` | Ascend message XP cooldown |
+| `XP_PER_MESSAGE_MIN` / `XP_PER_MESSAGE_MAX` | Ascend fallback XP range; server owners override it in the dashboard |
+
+Bot behavior settings such as Ascend XP/cooldown and Pulse enabled state are stored per server in PostgreSQL. The environment file contains secrets and safe fallback defaults only.
 | `ADMIN_SECRET_PATH` | A secret path for the admin panel |
 | `ADMIN_ALLOWLIST` | Your Discord user ID |
 | `DATABASE_URL` | PostgreSQL URL (same as Railway) |
@@ -126,8 +140,11 @@ bot-bay/
 │   ├── bot-admin/             # ⚖️ Iron Gavel
 │   ├── bot-ticket/            # 🎫 Deskline
 │   ├── bot-welcome/           # 👋 Threshold
+│   ├── bot-beacon/            # 📡 Beacon feeds
+│   ├── bot-pulse/             # 📈 Pulse analytics
+│   ├── bot-ascend/            # ⭐ Ascend XP and levels
 │   ├── bot-runner/            # 🏃 Unified runner (all bots → Railway)
-│   │   └── run-all-bots.py    # Starts all 6 bots as subprocesses
+│   │   └── run-all-bots.py    # Starts all 9 bots as subprocesses
 │   └── web/                   # 🌐 Dashboard → Vercel
 ├── packages/db/               # Shared SQLAlchemy models
 ├── railway.json               # Railway config (single bot-runner service)
@@ -140,7 +157,7 @@ bot-bay/
 
 ## Notes
 
-- All 6 bots run as subprocesses within a single Railway service (`bot-runner`), staying within the 5-service limit
+- All 9 bots run as subprocesses within a single Railway service (`bot-runner`), staying within the 5-service limit
 - If a bot crashes, it is automatically restarted (up to 5 times per minute)
 - All bots share the same PostgreSQL database via `packages/db/shared_models.py`
 - Each bot's `bot.py` uses `sys.path.insert` to find the shared models

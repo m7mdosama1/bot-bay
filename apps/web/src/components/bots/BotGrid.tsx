@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect } from "react";
+import Image from "next/image";
 
 interface Bot {
   id: string;
@@ -18,52 +17,29 @@ interface Bot {
   isActive: boolean;
 }
 
-const botIcons: Record<string, string> = {
-  verification: "🛡️",
-  giveaway: "🎁",
-  roulette: "🎰",
-  admin: "⚖️",
-  welcome: "👋",
-  ticket: "🎫",
+const botArtwork: Record<string, string> = {
+  verification: "/bots/verification.png",
+  giveaway: "/bots/giveaway.png",
+  roulette: "/bots/roulette.png",
+  admin: "/bots/admin.png",
+  welcome: "/bots/welcome.png",
+  ticket: "/bots/ticket.png",
+  beacon: "/bots/beacon.png",
+  pulse: "/bots/pulse.png",
+  ascend: "/bots/ascend.png",
 };
-
-const floatingAnimations = [
-  "float-slow",
-  "float-medium",
-  "float-fast",
-  "float-slow",
-  "float-medium",
-  "float-fast",
-];
 
 export function BotGrid({ bots }: { bots: Bot[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {bots.map((bot, i) => (
-        <BotCard key={bot.id} bot={bot} animationClass={floatingAnimations[i % floatingAnimations.length]} />
+      {bots.map((bot) => (
+        <BotCard key={bot.id} bot={bot} />
       ))}
     </div>
   );
 }
 
-function BotCard({ bot, animationClass }: { bot: Bot; animationClass: string }) {
-  const [imgError, setImgError] = useState(false);
-  const icon = botIcons[bot.slug] || bot.name.charAt(0);
-
-  const renderIcon = () => {
-    if (bot.iconUrl && !imgError) {
-      return (
-        <img
-          src={bot.iconUrl}
-          alt={bot.name}
-          className="w-12 h-12 rounded-lg object-cover"
-          onError={() => setImgError(true)}
-        />
-      );
-    }
-    return <span className="text-2xl">{icon}</span>;
-  };
-
+function BotCard({ bot }: { bot: Bot }) {
   return (
     <Link href={`/bots/${bot.slug}`} className="group block">
       <div
@@ -73,19 +49,17 @@ function BotCard({ bot, animationClass }: { bot: Bot; animationClass: string }) 
           transition-all duration-500
           group-hover:border-amber-signal group-hover:scale-[1.03]
           group-hover:z-10
-          ${animationClass}
-          group-hover:animate-none
         `}
         style={{
           boxShadow: `0 0 20px 0px ${bot.colorAccent}20`,
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-signal/5 via-transparent to-violet-deep/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="absolute inset-0 bg-linear-to-br from-amber-signal/5 via-transparent to-violet-deep/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
         <div className="p-6">
           <div className="flex items-start justify-between mb-4">
             <div
-              className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-transform duration-500 group-hover:scale-110"
+              className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center transition-transform duration-300 group-hover:scale-105"
               style={{
                 backgroundColor: `${bot.colorAccent}20`,
                 borderColor: bot.colorAccent,
@@ -93,7 +67,7 @@ function BotCard({ bot, animationClass }: { bot: Bot; animationClass: string }) 
                 borderStyle: "solid",
               }}
             >
-              {renderIcon()}
+              <Image src={botArtwork[bot.slug] || "/favicon.svg"} alt="" width={56} height={56} className="h-full w-full object-cover" />
             </div>
 
             <div

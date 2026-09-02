@@ -1,3 +1,4 @@
+require("dotenv/config");
 const { Pool } = require("pg");
 
 const connectionString = process.env.DATABASE_URL;
@@ -30,7 +31,7 @@ const bots = [
     clientId: process.env.BOT_VERIFICATION_CLIENT_ID || "123456789012345678",
     permissions: "268468292673",
     colorAccent: "#3CFF4A",
-    iconUrl: "https://cdn.discordapp.com/emojis/verify_icon.png",
+    iconUrl: "/bots/verification.png",
   },
   {
     slug: "giveaway",
@@ -47,7 +48,7 @@ const bots = [
     clientId: process.env.BOT_GIVEAWAY_CLIENT_ID || "123456789012345680",
     permissions: "8",
     colorAccent: "#FFA500",
-    iconUrl: "https://cdn.discordapp.com/emojis/giveaway_icon.png",
+    iconUrl: "/bots/giveaway.png",
   },
   {
     slug: "roulette",
@@ -65,7 +66,7 @@ const bots = [
     clientId: process.env.BOT_ROULETTE_CLIENT_ID || "123456789012345682",
     permissions: "8",
     colorAccent: "#9D4EDD",
-    iconUrl: "https://cdn.discordapp.com/emojis/roulette_icon.png",
+    iconUrl: "/bots/roulette.png",
   },
   {
     slug: "admin",
@@ -82,7 +83,7 @@ const bots = [
     clientId: process.env.BOT_ADMIN_CLIENT_ID || "123456789012345684",
     permissions: "8",
     colorAccent: "#3B82F6",
-    iconUrl: "https://cdn.discordapp.com/emojis/admin_icon.png",
+    iconUrl: "/bots/admin.png",
   },
   {
     slug: "welcome",
@@ -99,7 +100,7 @@ const bots = [
     clientId: process.env.BOT_WELCOME_CLIENT_ID || "123456789012345686",
     permissions: "8",
     colorAccent: "#06D6A0",
-    iconUrl: "https://cdn.discordapp.com/emojis/welcome_icon.png",
+    iconUrl: "/bots/welcome.png",
   },
   {
     slug: "ticket",
@@ -117,8 +118,41 @@ const bots = [
     clientId: process.env.BOT_TICKET_CLIENT_ID || "123456789012345688",
     permissions: "8",
     colorAccent: "#F2A93B",
-    iconUrl: "https://cdn.discordapp.com/emojis/ticket_icon.png",
+    iconUrl: "/bots/ticket.png",
   },
+    {
+      slug: "beacon",
+      name: "Beacon",
+      tagline: "Signal every important update",
+      description: "Official-source notifications for Twitch, YouTube, GitHub, Reddit, RSS, and custom webhooks with rich, configurable embeds.",
+      features: JSON.stringify(["RSS and API feeds", "Duplicate protection", "Custom embed templates", "Private webhook secrets"]),
+      clientId: process.env.BOT_BEACON_CLIENT_ID || "123456789012345690",
+      permissions: "19456",
+      colorAccent: "#DCA85D",
+      iconUrl: "/bots/beacon.png",
+    },
+    {
+      slug: "pulse",
+      name: "Pulse",
+      tagline: "See how your community moves",
+      description: "Privacy-aware server analytics for messages, member growth, active users, channels, and voice activity.",
+      features: JSON.stringify(["Message activity", "Member growth", "Active users", "Voice analytics"]),
+      clientId: process.env.BOT_PULSE_CLIENT_ID || "123456789012345692",
+      permissions: "16896",
+      colorAccent: "#58C8A5",
+      iconUrl: "/bots/pulse.png",
+    },
+    {
+      slug: "ascend",
+      name: "Ascend",
+      tagline: "Turn participation into momentum",
+      description: "A persistent XP and level system with streaks, role rewards, leaderboards, and private rank experiences.",
+      features: JSON.stringify(["Cooldown XP", "Level roles", "Daily streaks", "Leaderboards"]),
+      clientId: process.env.BOT_ASCEND_CLIENT_ID || "123456789012345694",
+      permissions: "26816",
+      colorAccent: "#D97968",
+      iconUrl: "/bots/ascend.png",
+    },
 ];
 
 async function seed() {

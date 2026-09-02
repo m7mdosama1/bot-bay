@@ -463,6 +463,35 @@ export async function getGuildOverviewStats(guildId: string) {
   };
 }
 
+export async function getPulseConfig(guildId: string) {
+  const result = await db.query("SELECT * FROM pulse_configs WHERE guild_id = $1", [guildId]);
+  return result.rows[0] || { guild_id: guildId, enabled: true };
+}
+
+export async function getAscendConfig(guildId: string) {
+  const result = await db.query("SELECT * FROM ascend_configs WHERE guild_id = $1", [guildId]);
+  return result.rows[0] || { guild_id: guildId, enabled: true, xp_cooldown_seconds: 60, xp_per_message_min: 15, xp_per_message_max: 25 };
+}
+
+export async function upsertPulseConfig(guildId: string, enabled: boolean) {
+  const result = await db.query(
+    "INSERT INTO pulse_configs (id, guild_id, enabled) VALUES (gen_random_uuid(), $1, $2) ON CONFLICT (guild_id) DO UPDATE SET enabled = $2 RETURNING *",
+    [guildId, enabled]
+  );
+  return result.rows[0];
+}
+
+export async function upsertAscendConfig(guildId: string, data: { enabled: boolean; xpCooldownSeconds: number; xpPerMessageMin: number; xpPerMessageMax: number }) {
+  const result = await db.query(
+    `INSERT INTO ascend_configs (id, guild_id, enabled, xp_cooldown_seconds, xp_per_message_min, xp_per_message_max)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)
+     ON CONFLICT (guild_id) DO UPDATE SET enabled = $2, xp_cooldown_seconds = $3, xp_per_message_min = $4, xp_per_message_max = $5
+     RETURNING *`,
+    [guildId, data.enabled, data.xpCooldownSeconds, data.xpPerMessageMin, data.xpPerMessageMax]
+  );
+  return result.rows[0];
+}
+
 // ─── Giveaway Helpers ───────────────────────────────────────────
 
 export async function getGiveawaysByGuild(guildId: string) {
