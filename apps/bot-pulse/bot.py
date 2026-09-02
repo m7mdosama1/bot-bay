@@ -26,7 +26,7 @@ async def daily(session, guild_id: str) -> DailyStat:
     today = datetime.now(timezone.utc).date().isoformat()
     row = await session.scalar(select(DailyStat).where(DailyStat.guild_id == guild_id, DailyStat.date == today))
     if not row:
-        row = DailyStat(guild_id=guild_id, date=today)
+        row = DailyStat(guild_id=guild_id, date=today, new_members=0, messages_count=0, active_users=0, voice_minutes=0)
         session.add(row)
     else:
         row.new_members = row.new_members or 0
@@ -120,6 +120,8 @@ async def on_message(message: discord.Message):
 @bot.event
 async def on_member_join(member: discord.Member):
     async with Session() as session:
+        if not await enabled_for(session, str(member.guild.id)):
+            return
         stat = await daily(session, str(member.guild.id))
         stat.new_members += 1
         await session.commit()

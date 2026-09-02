@@ -33,7 +33,7 @@ def xp_required(level: int) -> int:
 async def user_record(session, guild_id: str, user_id: str) -> UserXP:
     row = await session.scalar(select(UserXP).where(UserXP.guild_id == guild_id, UserXP.user_id == user_id))
     if not row:
-        row = UserXP(guild_id=guild_id, user_id=user_id)
+        row = UserXP(guild_id=guild_id, user_id=user_id, xp=0, level=0, prestige=0, message_count=0, voice_minutes=0, streak_days=0)
         session.add(row)
     else:
         row.xp = row.xp or 0
