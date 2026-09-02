@@ -498,6 +498,37 @@ export async function getBeaconFeeds(guildId: string) {
   return result.rows;
 }
 
+export async function saveKickConnection(data: {
+  guildId: string;
+  discordUserId: string;
+  kickUserId?: string | null;
+  kickUsername?: string | null;
+  accessToken: string;
+  refreshToken?: string | null;
+  expiresAt?: Date | null;
+}) {
+  const result = await db.query(
+    `INSERT INTO kick_connections
+      (id, guild_id, discord_user_id, kick_user_id, kick_username, access_token, refresh_token, expires_at)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (guild_id) DO UPDATE SET
+       discord_user_id = $2, kick_user_id = $3, kick_username = $4,
+       access_token = $5, refresh_token = $6, expires_at = $7, updated_at = NOW()
+     RETURNING guild_id as "guildId", kick_user_id as "kickUserId", kick_username as "kickUsername"`,
+    [data.guildId, data.discordUserId, data.kickUserId || null, data.kickUsername || null, data.accessToken, data.refreshToken || null, data.expiresAt || null]
+  );
+  return result.rows[0];
+}
+
+export async function getKickConnection(guildId: string) {
+  const result = await db.query(
+    `SELECT guild_id as "guildId", kick_user_id as "kickUserId", kick_username as "kickUsername"
+     FROM kick_connections WHERE guild_id = $1`,
+    [guildId]
+  );
+  return result.rows[0] || null;
+}
+
 export async function createBeaconFeed(guildId: string, data: { platform: string; sourceRef: string; targetChannelId: string }) {
   const webhookSecret = data.platform === "webhook" ? randomBytes(32).toString("hex") : null;
   const result = await db.query(
