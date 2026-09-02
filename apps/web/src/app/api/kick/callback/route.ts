@@ -48,7 +48,12 @@ export async function GET(request: NextRequest) {
     });
     if (!tokenResponse.ok) throw new Error("Kick token exchange failed");
     const token = await tokenResponse.json();
-    await saveKickConnection({ guildId, discordUserId: session.user.id, accessToken: encrypt(token.access_token, secret), refreshToken: token.refresh_token ? encrypt(token.refresh_token, secret) : null, expiresAt: token.expires_in ? new Date(Date.now() + Number(token.expires_in) * 1000) : null });
+    const userResponse = await fetch("https://api.kick.com/public/v1/users", {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+    });
+    const userPayload = userResponse.ok ? await userResponse.json() : null;
+    const kickUser = userPayload?.data?.[0] || userPayload?.data || {};
+    await saveKickConnection({ guildId, discordUserId: session.user.id, kickUserId: kickUser.user_id ? String(kickUser.user_id) : null, kickUsername: kickUser.name || kickUser.username || null, accessToken: encrypt(token.access_token, secret), refreshToken: token.refresh_token ? encrypt(token.refresh_token, secret) : null, expiresAt: token.expires_in ? new Date(Date.now() + Number(token.expires_in) * 1000) : null });
     const successUrl = new URL(`/dashboard/${guildId}/beacon`, process.env.NEXTAUTH_URL);
     successUrl.searchParams.set("kick", "connected");
     const response = NextResponse.redirect(successUrl);

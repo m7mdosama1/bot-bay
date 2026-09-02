@@ -494,8 +494,12 @@ export async function upsertAscendConfig(guildId: string, data: { enabled: boole
 }
 
 export async function getBeaconFeeds(guildId: string) {
-  const result = await db.query("SELECT id, platform, source_ref as \"sourceRef\", target_channel_id as \"targetChannelId\", enabled FROM feeds WHERE guild_id = $1 ORDER BY created_at DESC", [guildId]);
-  return result.rows;
+  const result = await db.query("SELECT id, platform, source_ref as \"sourceRef\", target_channel_id as \"targetChannelId\", enabled, webhook_secret as \"webhookSecret\" FROM feeds WHERE guild_id = $1 ORDER BY created_at DESC", [guildId]);
+  return result.rows.map((feed) => ({
+    ...feed,
+    ...(feed.webhookSecret ? { webhookUrl: `${process.env.BEACON_PUBLIC_URL || ""}/webhooks/beacon/${feed.id}/${feed.webhookSecret}` } : {}),
+    webhookSecret: undefined,
+  }));
 }
 
 export async function saveKickConnection(data: {
@@ -525,6 +529,14 @@ export async function getKickConnection(guildId: string) {
     `SELECT guild_id as "guildId", kick_user_id as "kickUserId", kick_username as "kickUsername"
      FROM kick_connections WHERE guild_id = $1`,
     [guildId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function deleteKickConnection(guildId: string, discordUserId: string) {
+  const result = await db.query(
+    "DELETE FROM kick_connections WHERE guild_id = $1 AND discord_user_id = $2 RETURNING guild_id as \"guildId\"",
+    [guildId, discordUserId]
   );
   return result.rows[0] || null;
 }

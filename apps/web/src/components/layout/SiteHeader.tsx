@@ -42,9 +42,9 @@ export function SiteHeader() {
               >
                 Sign Out
               </button>
-              {user?.avatar && (
+              {(user?.image || user?.avatar) && (
                 <img
-                  src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
+                  src={user.image || (user.avatar?.startsWith("http") ? user.avatar : `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`)}
                   alt="avatar"
                   className="w-8 h-8 rounded-full"
                 />

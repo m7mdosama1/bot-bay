@@ -11,6 +11,7 @@ import {
   getPulseConfig,
   getAscendConfig,
   getBeaconFeeds,
+  getKickConnection,
 } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -80,6 +81,7 @@ export default async function BotSettingsPage({
   let pulseConfig = null;
   let ascendConfig = null;
   let beaconFeeds: { id: string; platform: string; sourceRef: string; targetChannelId: string; enabled: boolean }[] = [];
+  let kickConnection: { guildId: string; kickUserId: string | null; kickUsername: string | null } | null = null;
 
   try {
     if (botSlug === "welcome") {
@@ -102,7 +104,7 @@ export default async function BotSettingsPage({
     } else if (botSlug === "ascend") {
       ascendConfig = await getAscendConfig(guildId);
     } else if (botSlug === "beacon") {
-      beaconFeeds = await getBeaconFeeds(guildId);
+      [beaconFeeds, kickConnection] = await Promise.all([getBeaconFeeds(guildId), getKickConnection(guildId)]);
     }
   } catch (error) {
     console.error("Failed to fetch bot config:", error);
@@ -185,7 +187,7 @@ export default async function BotSettingsPage({
             <BotAutomationSettings guildId={guildId} botSlug="ascend" config={ascendConfig} />
           )}
           {botSlug === "beacon" && (
-            <BeaconSettings guildId={guildId} initialFeeds={beaconFeeds} />
+            <BeaconSettings guildId={guildId} initialFeeds={beaconFeeds} kickConnection={kickConnection} />
           )}
         </div>
       </main>

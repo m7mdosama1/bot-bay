@@ -29,7 +29,7 @@ export const authOptions: NextAuthOptions = {
         const processedUser = user as any;
 
         token.username = discordProfile?.username || processedUser?.username || processedUser?.name;
-        token.picture = processedUser?.image;
+        token.picture = discordProfile?.image_url || discordProfile?.image || processedUser?.image;
 
         // Set the Discord user ID from multiple possible sources
         const discordId = account.providerAccountId || discordProfile?.id || processedUser?.id;
