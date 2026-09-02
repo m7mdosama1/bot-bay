@@ -492,6 +492,24 @@ export async function upsertAscendConfig(guildId: string, data: { enabled: boole
   return result.rows[0];
 }
 
+export async function getBeaconFeeds(guildId: string) {
+  const result = await db.query("SELECT id, platform, source_ref as \"sourceRef\", target_channel_id as \"targetChannelId\", enabled FROM feeds WHERE guild_id = $1 ORDER BY created_at DESC", [guildId]);
+  return result.rows;
+}
+
+export async function createBeaconFeed(guildId: string, data: { platform: string; sourceRef: string; targetChannelId: string }) {
+  const result = await db.query(
+    "INSERT INTO feeds (id, guild_id, platform, source_ref, target_channel_id, embed_template, enabled, created_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, '{}', true, NOW()) RETURNING id, platform, source_ref as \"sourceRef\", target_channel_id as \"targetChannelId\", enabled",
+    [guildId, data.platform, data.sourceRef, data.targetChannelId]
+  );
+  return result.rows[0];
+}
+
+export async function setBeaconFeedEnabled(guildId: string, feedId: string, enabled: boolean) {
+  const result = await db.query("UPDATE feeds SET enabled = $1 WHERE id = $2 AND guild_id = $3 RETURNING id, enabled", [enabled, feedId, guildId]);
+  return result.rows[0] || null;
+}
+
 // ─── Giveaway Helpers ───────────────────────────────────────────
 
 export async function getGiveawaysByGuild(guildId: string) {

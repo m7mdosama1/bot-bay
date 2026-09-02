@@ -10,6 +10,7 @@ import {
   getModerationLogsByGuild,
   getPulseConfig,
   getAscendConfig,
+  getBeaconFeeds,
 } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -23,6 +24,7 @@ import { WelcomeSettings } from "@/components/dashboard/WelcomeSettings";
 import { TicketSettings } from "@/components/dashboard/TicketSettings";
 import { VerificationSettings } from "@/components/dashboard/VerificationSettings";
 import { BotAutomationSettings } from "@/components/dashboard/BotAutomationSettings";
+import { BeaconSettings } from "@/components/dashboard/BeaconSettings";
 
 export default async function BotSettingsPage({
   params,
@@ -77,6 +79,7 @@ export default async function BotSettingsPage({
   let ticketStats = { open: 0, closed: 0, total: 0 };
   let pulseConfig = null;
   let ascendConfig = null;
+  let beaconFeeds: { id: string; platform: string; sourceRef: string; targetChannelId: string; enabled: boolean }[] = [];
 
   try {
     if (botSlug === "welcome") {
@@ -98,6 +101,8 @@ export default async function BotSettingsPage({
       pulseConfig = await getPulseConfig(guildId);
     } else if (botSlug === "ascend") {
       ascendConfig = await getAscendConfig(guildId);
+    } else if (botSlug === "beacon") {
+      beaconFeeds = await getBeaconFeeds(guildId);
     }
   } catch (error) {
     console.error("Failed to fetch bot config:", error);
@@ -178,6 +183,9 @@ export default async function BotSettingsPage({
           )}
           {botSlug === "ascend" && ascendConfig && (
             <BotAutomationSettings guildId={guildId} botSlug="ascend" config={ascendConfig} />
+          )}
+          {botSlug === "beacon" && (
+            <BeaconSettings guildId={guildId} initialFeeds={beaconFeeds} />
           )}
         </div>
       </main>

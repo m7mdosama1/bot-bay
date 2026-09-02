@@ -9,6 +9,8 @@ import {
   getGuildById,
   upsertPulseConfig,
   upsertAscendConfig,
+  createBeaconFeed,
+  setBeaconFeedEnabled,
 } from "@/lib/prisma";
 
 export async function POST(
@@ -54,6 +56,22 @@ export async function POST(
           xpPerMessageMin: Math.max(1, Number(data.xpPerMessageMin) || 15),
           xpPerMessageMax: Math.max(Number(data.xpPerMessageMin) || 15, Number(data.xpPerMessageMax) || 25),
         });
+        break;
+      case "beacon_add_feed":
+        if (!["rss", "twitch", "kick"].includes(String(data.platform).toLowerCase())) {
+          return NextResponse.json({ error: "Beacon supports rss, twitch, and kick feeds" }, { status: 400 });
+        }
+        if (!String(data.sourceRef || "").trim() || !String(data.targetChannelId || "").trim()) {
+          return NextResponse.json({ error: "Source and target channel are required" }, { status: 400 });
+        }
+        result = await createBeaconFeed(guildId, {
+          platform: String(data.platform).toLowerCase(),
+          sourceRef: String(data.sourceRef).trim(),
+          targetChannelId: String(data.targetChannelId).trim(),
+        });
+        break;
+      case "beacon_toggle_feed":
+        result = await setBeaconFeedEnabled(guildId, String(data.feedId), Boolean(data.enabled));
         break;
       default:
         return NextResponse.json(
