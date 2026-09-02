@@ -28,9 +28,11 @@ interface Ticket {
 
 interface Props {
   ticket: Ticket;
+  adminPath?: string;
 }
 
-export function TicketTranscriptView({ ticket }: Props) {
+export function TicketTranscriptView({ ticket, adminPath }: Props) {
+  const backHref = adminPath ? `/${adminPath}` : "/dashboard";
   const transcriptLines = ticket.transcriptContent
     ? ticket.transcriptContent.split("\n").filter((line) => line.trim())
     : [];
@@ -42,10 +44,10 @@ export function TicketTranscriptView({ ticket }: Props) {
           Ticket #{ticket.number} — Transcript
         </h1>
         <Link
-          href={`/${process.env.ADMIN_SECRET_PATH}`}
+          href={backHref}
           className="text-text-dim hover:text-amber-signal font-mono text-sm transition-colors"
         >
-          ← Back to Admin Panel
+          ← Back 
         </Link>
       </div>
 
@@ -96,10 +98,10 @@ export function TicketTranscriptView({ ticket }: Props) {
       </div>
 
       <Link
-        href={`/${process.env.ADMIN_SECRET_PATH}`}
+        href={backHref}
         className="inline-block btn btn-ghost rounded-xl font-mono text-sm"
       >
-        ← Back to Admin Panel
+        ← Back 
       </Link>
     </div>
   );

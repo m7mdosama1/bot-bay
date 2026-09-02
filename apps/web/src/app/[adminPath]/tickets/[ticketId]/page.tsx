@@ -59,7 +59,7 @@ export default async function AdminTicketDetailPage({
     <div className="min-h-screen bg-bg-void text-text">
       <SiteHeader />
       <main className="pt-24 container mx-auto px-6 py-12">
-        <TicketTranscriptView ticket={ticket} />
+        <TicketTranscriptView ticket={ticket} adminPath={adminPath} />
       </main>
     </div>
   );
