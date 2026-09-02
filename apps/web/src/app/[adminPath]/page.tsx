@@ -7,6 +7,8 @@ import {
   getAllBotsForAdmin,
   getAllGuildsForAdmin,
   getAllGlobalTickets,
+  getAllUsersForAdmin,
+  getAdminAuditLogs,
 } from "@/lib/prisma";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AdminControlCenter } from "@/components/admin/AdminControlCenter";
@@ -108,11 +110,13 @@ export default async function AdminPanelPage({
   }
 
   // Fetch complete admin data
-  const [stats, bots, guilds, tickets] = await Promise.all([
+  const [stats, bots, guilds, tickets, users, auditLogs] = await Promise.all([
     getAdminStats(),
     getAllBotsForAdmin(),
     getAllGuildsForAdmin(),
     getAllGlobalTickets(30),
+    getAllUsersForAdmin(),
+    getAdminAuditLogs(),
   ]);
 
   return (
@@ -143,6 +147,8 @@ export default async function AdminPanelPage({
           bots={bots as any}
           guilds={guilds as any}
           tickets={tickets as any}
+          users={users as any}
+          auditLogs={auditLogs as any}
         />
       </main>
     </div>

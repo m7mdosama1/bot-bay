@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { randomBytes } from "crypto";
 
 let pool: Pool | null = null;
 
@@ -498,11 +499,16 @@ export async function getBeaconFeeds(guildId: string) {
 }
 
 export async function createBeaconFeed(guildId: string, data: { platform: string; sourceRef: string; targetChannelId: string }) {
+  const webhookSecret = data.platform === "webhook" ? randomBytes(32).toString("hex") : null;
   const result = await db.query(
-    "INSERT INTO feeds (id, guild_id, platform, source_ref, target_channel_id, embed_template, enabled, created_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, '{}', true, NOW()) RETURNING id, platform, source_ref as \"sourceRef\", target_channel_id as \"targetChannelId\", enabled",
-    [guildId, data.platform, data.sourceRef, data.targetChannelId]
+    "INSERT INTO feeds (id, guild_id, platform, source_ref, target_channel_id, embed_template, webhook_secret, enabled, created_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, '{}', $5, true, NOW()) RETURNING id, platform, source_ref as \"sourceRef\", target_channel_id as \"targetChannelId\", enabled, webhook_secret as \"webhookSecret\"",
+    [guildId, data.platform, data.sourceRef, data.targetChannelId, webhookSecret]
   );
-  return result.rows[0];
+  const feed = result.rows[0];
+  if (webhookSecret) {
+    feed.webhookUrl = `${process.env.BEACON_PUBLIC_URL || ""}/webhooks/beacon/${feed.id}/${webhookSecret}`;
+  }
+  return feed;
 }
 
 export async function setBeaconFeedEnabled(guildId: string, feedId: string, enabled: boolean) {
@@ -564,9 +570,16 @@ export async function getAllGuildsForAdmin() {
        g.icon_url as "iconUrl",
        g.owner_id as "ownerId",
        COUNT(DISTINCT gb.id) FILTER (WHERE gb.is_active = true) as "activeBotsCount",
-       COUNT(DISTINCT t.id) as "ticketsCount"
+       COUNT(DISTINCT t.id) as "ticketsCount",
+       COALESCE(json_agg(json_build_object(
+         'botId', gb.bot_id,
+         'botName', b.name,
+         'isAdminBlocked', gb.is_admin_blocked,
+         'adminBlockReason', gb.admin_block_reason
+       ) ORDER BY b.name) FILTER (WHERE gb.bot_id IS NOT NULL), '[]') as bots
      FROM guilds g
      LEFT JOIN guild_bots gb ON g.id = gb.guild_id
+     LEFT JOIN bots b ON b.id = gb.bot_id
      LEFT JOIN tickets t ON g.id = t.guild_id
      GROUP BY g.id, g.name, g.icon_url, g.owner_id
      ORDER BY g.name ASC`
@@ -640,6 +653,87 @@ export async function toggleBotGlobalStatus(botId: string) {
     [botId]
   );
   return result.rows[0] || null;
+}
+
+export async function getAllUsersForAdmin() {
+  const result = await db.query(
+    `SELECT id, username, avatar, is_admin as "isAdmin",
+            is_banned as "isBanned", banned_at as "bannedAt",
+            ban_reason as "banReason", created_at as "createdAt"
+     FROM users ORDER BY created_at DESC`
+  );
+  return result.rows;
+}
+
+export async function setUserBanForAdmin(
+  userId: string,
+  banned: boolean,
+  reason: string | null,
+  adminUserId: string
+) {
+  if (userId === adminUserId && banned) {
+    throw new Error("You cannot ban your own admin account");
+  }
+
+  const result = await db.query(
+    `UPDATE users
+     SET is_banned = $2,
+         banned_at = CASE WHEN $2 THEN NOW() ELSE NULL END,
+         ban_reason = CASE WHEN $2 THEN $3 ELSE NULL END
+     WHERE id = $1
+     RETURNING id, username, is_banned as "isBanned", banned_at as "bannedAt", ban_reason as "banReason"`,
+    [userId, banned, reason]
+  );
+  const user = result.rows[0];
+  if (!user) return null;
+
+  await db.query(
+    `INSERT INTO admin_audit_logs
+      (id, admin_user_id, action, target_type, target_id, reason, metadata)
+     VALUES (gen_random_uuid(), $1, $2, 'user', $3, $4, NULL)`,
+    [adminUserId, banned ? "ban_user" : "unban_user", userId, reason]
+  );
+  return user;
+}
+
+export async function setGuildBotAdminBlock(
+  guildId: string,
+  botId: string,
+  blocked: boolean,
+  reason: string | null,
+  adminUserId: string
+) {
+  const result = await db.query(
+    `UPDATE guild_bots
+     SET is_admin_blocked = $3,
+         admin_blocked_at = CASE WHEN $3 THEN NOW() ELSE NULL END,
+         admin_block_reason = CASE WHEN $3 THEN $4 ELSE NULL END,
+         is_active = CASE WHEN $3 THEN false ELSE is_active END
+     WHERE guild_id = $1 AND bot_id = $2
+     RETURNING guild_id as "guildId", bot_id as "botId", is_admin_blocked as "isAdminBlocked"`,
+    [guildId, botId, blocked, reason]
+  );
+  const guildBot = result.rows[0];
+  if (!guildBot) return null;
+
+  await db.query(
+    `INSERT INTO admin_audit_logs
+      (id, admin_user_id, action, target_type, target_id, reason, metadata)
+     VALUES (gen_random_uuid(), $1, $2, 'guild_bot', $3, $4, $5)`,
+    [adminUserId, blocked ? "block_guild_bot" : "unblock_guild_bot", botId, reason, JSON.stringify({ guildId })]
+  );
+  return guildBot;
+}
+
+export async function getAdminAuditLogs(limit = 100) {
+  const result = await db.query(
+    `SELECT id, admin_user_id as "adminUserId", action,
+            target_type as "targetType", target_id as "targetId",
+            reason, metadata, created_at as "createdAt"
+     FROM admin_audit_logs ORDER BY created_at DESC LIMIT $1`,
+    [limit]
+  );
+  return result.rows;
 }
 
 export async function updateBotDetails(botId: string, data: {

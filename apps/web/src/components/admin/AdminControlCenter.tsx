@@ -25,6 +25,12 @@ interface Guild {
   ownerId: string;
   activeBotsCount: number;
   ticketsCount: number;
+  bots: {
+    botId: string;
+    botName: string;
+    isAdminBlocked: boolean;
+    adminBlockReason: string | null;
+  }[];
 }
 
 interface Ticket {
@@ -38,6 +44,27 @@ interface Ticket {
   created_at: string;
 }
 
+interface User {
+  id: string;
+  username: string;
+  avatar: string | null;
+  isAdmin: boolean;
+  isBanned: boolean;
+  bannedAt: string | null;
+  banReason: string | null;
+  createdAt: string;
+}
+
+interface AuditLog {
+  id: string;
+  adminUserId: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  reason: string | null;
+  createdAt: string;
+}
+
 interface Props {
   adminPath: string;
   stats: {
@@ -46,10 +73,14 @@ interface Props {
     totalTickets: number;
     openTickets: number;
     totalGiveaways: number;
+    bannedUsers: number;
+    blockedBots: number;
   };
   bots: Bot[];
   guilds: Guild[];
   tickets: Ticket[];
+  users: User[];
+  auditLogs: AuditLog[];
 }
 
 export function AdminControlCenter({
@@ -58,9 +89,12 @@ export function AdminControlCenter({
   bots: initialBots,
   guilds,
   tickets,
+  users,
+  auditLogs,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<"overview" | "bots" | "guilds" | "tickets">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "bots" | "guilds" | "tickets" | "users" | "audit">("overview");
   const [bots, setBots] = useState<Bot[]>(initialBots);
+  const [adminUsers, setAdminUsers] = useState<User[]>(users);
 
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -219,6 +253,55 @@ export function AdminControlCenter({
     }
   }
 
+  async function handleUserBan(user: User) {
+    const action = user.isBanned ? "unban-user" : "ban-user";
+    const reason = user.isBanned ? null : window.prompt("Ban reason (optional):");
+    if (!user.isBanned && reason === null) return;
+
+    try {
+      const res = await fetch("/api/admin/controls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, userId: user.id, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update user ban");
+
+      setAdminUsers(adminUsers.map((item) => item.id === user.id
+        ? { ...item, ...data.user }
+        : item));
+      setFeedback({
+        type: "success",
+        text: user.isBanned ? `User ${user.username} unbanned.` : `User ${user.username} banned.`,
+      });
+    } catch (error: unknown) {
+      setFeedback({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to update user ban",
+      });
+    }
+  }
+
+  async function handleGuildBotBlock(guildId: string, bot: Guild["bots"][number]) {
+    const action = bot.isAdminBlocked ? "unblock-guild-bot" : "block-guild-bot";
+    const reason = bot.isAdminBlocked ? null : window.prompt("Block reason (optional):");
+    if (!bot.isAdminBlocked && reason === null) return;
+
+    try {
+      const res = await fetch("/api/admin/controls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, guildId, botId: bot.botId, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update bot block");
+      setFeedback({ type: "success", text: `${bot.botName} ${bot.isAdminBlocked ? "unblocked" : "blocked"} for this server.` });
+      window.location.reload();
+    } catch (error: unknown) {
+      setFeedback({ type: "error", text: error instanceof Error ? error.message : "Failed to update bot block" });
+    }
+  }
+
   function startEditing(bot: Bot) {
     setEditingBot(bot);
     setFormName(bot.name || "");
@@ -302,6 +385,24 @@ export function AdminControlCenter({
           >
             🎫 Tickets Center ({stats.totalTickets})
           </button>
+          <button
+            onClick={() => setActiveTab("users")}
+            className={`px-5 py-2.5 rounded-xl font-mono text-xs font-semibold transition-all ${
+              activeTab === "users"
+                ? "bg-amber-signal text-black shadow-lg"
+                : "text-text-dim hover:text-white"
+            }`}
+          >
+            👥 Users ({adminUsers.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("audit")}
+            className={`px-5 py-2.5 rounded-xl font-mono text-xs font-semibold transition-all ${
+              activeTab === "audit" ? "bg-amber-signal text-black shadow-lg" : "text-text-dim hover:text-white"
+            }`}
+          >
+            🧾 Audit Log ({auditLogs.length})
+          </button>
         </div>
 
         {activeTab === "bots" && (
@@ -355,6 +456,16 @@ export function AdminControlCenter({
               <div className="text-3xl font-extrabold font-mono text-violet-400 mt-2">
                 {stats.totalGiveaways}
               </div>
+            </div>
+
+            <div className="card-bg rounded-2xl p-5 border border-white/5 shadow-lg">
+              <div className="text-xs font-mono text-text-dim">Banned Users</div>
+              <div className="text-3xl font-extrabold font-mono text-red-400 mt-2">{stats.bannedUsers}</div>
+            </div>
+
+            <div className="card-bg rounded-2xl p-5 border border-white/5 shadow-lg">
+              <div className="text-xs font-mono text-text-dim">Blocked Bot Links</div>
+              <div className="text-3xl font-extrabold font-mono text-orange-400 mt-2">{stats.blockedBots}</div>
             </div>
           </div>
 
@@ -630,6 +741,64 @@ export function AdminControlCenter({
       )}
 
       {/* TAB 3: GUILDS EXPLORER */}
+      {activeTab === "users" && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-display text-xl font-bold text-white">Platform Users</h3>
+              <p className="text-sm text-text-dim">Review accounts and control platform access.</p>
+            </div>
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search username or Discord ID..."
+              className="px-4 py-2 bg-bg-raised border border-white/10 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-amber-signal max-w-xs"
+            />
+          </div>
+
+          <div className="overflow-x-auto rounded-3xl border border-white/10 card-bg shadow-2xl">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-white/10 text-xs font-mono text-text-dim bg-white/5">
+                  <th className="py-3 px-4">User</th>
+                  <th className="py-3 px-4">Discord ID</th>
+                  <th className="py-3 px-4">Joined</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-sm font-mono">
+                {adminUsers
+                  .filter((user) => user.username.toLowerCase().includes(searchTerm.toLowerCase()) || user.id.includes(searchTerm))
+                  .map((user) => (
+                    <tr key={user.id} className="hover:bg-white/5 transition-colors">
+                      <td className="py-3 px-4 text-white font-semibold">{user.username}</td>
+                      <td className="py-3 px-4 text-text-dim text-xs">{user.id}</td>
+                      <td className="py-3 px-4 text-text-dim text-xs">{new Date(user.createdAt).toLocaleDateString()}</td>
+                      <td className="py-3 px-4">
+                        <span className={user.isBanned ? "text-red-400" : "text-emerald-400"}>
+                          {user.isBanned ? "BANNED" : "ACTIVE"}
+                        </span>
+                        {user.banReason && <div className="text-[10px] text-text-dim mt-1">{user.banReason}</div>}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          onClick={() => handleUserBan(user)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold ${user.isBanned ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}
+                        >
+                          {user.isBanned ? "Lift Ban" : "Ban User"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: GUILDS EXPLORER */}
       {activeTab === "guilds" && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -692,8 +861,57 @@ export function AdminControlCenter({
                     Open Dashboard →
                   </Link>
                 </div>
+                {guild.bots?.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-white/5 space-y-2">
+                    <p className="text-[10px] uppercase tracking-wider text-text-dim">Bot access controls</p>
+                    {guild.bots.map((bot) => (
+                      <div key={bot.botId} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-text-dim truncate">{bot.botName}</span>
+                        <button
+                          onClick={() => handleGuildBotBlock(guild.id, bot)}
+                          className={`px-2 py-1 rounded-md font-mono ${bot.isAdminBlocked ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}
+                        >
+                          {bot.isAdminBlocked ? "Unblock" : "Block"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "audit" && (
+        <div className="space-y-6">
+          <div>
+            <h3 className="font-display text-xl font-bold text-white">Administrator Audit Log</h3>
+            <p className="text-sm text-text-dim">Every sensitive platform action is recorded here.</p>
+          </div>
+          <div className="overflow-x-auto rounded-3xl border border-white/10 card-bg shadow-2xl">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-white/10 text-xs font-mono text-text-dim bg-white/5">
+                  <th className="py-3 px-4">Action</th>
+                  <th className="py-3 px-4">Target</th>
+                  <th className="py-3 px-4">Reason</th>
+                  <th className="py-3 px-4">Admin</th>
+                  <th className="py-3 px-4">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-sm font-mono">
+                {auditLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                    <td className="py-3 px-4 text-amber-400">{log.action}</td>
+                    <td className="py-3 px-4 text-text-dim">{log.targetType}: {log.targetId}</td>
+                    <td className="py-3 px-4 text-text-dim">{log.reason || "-"}</td>
+                    <td className="py-3 px-4 text-text-dim">{log.adminUserId}</td>
+                    <td className="py-3 px-4 text-text-dim text-xs">{new Date(log.createdAt).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

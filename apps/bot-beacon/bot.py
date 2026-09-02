@@ -7,6 +7,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 
 import discord
+from aiohttp import web
 from discord import app_commands
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
@@ -23,25 +24,36 @@ intents = discord.Intents.default()
 intents.guilds = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 twitch_token: str | None = None
+webhook_runner: web.AppRunner | None = None
 
 
 def embed_for(feed: Feed, item: dict) -> discord.Embed:
     template = json.loads(feed.embed_template or "{}")
+    is_live = feed.platform in {"twitch", "kick"} or item.get("is_live", False)
+    stream_title = item.get("title") or f"{item.get('channel_name', feed.source_ref)} is live now"
     embed = discord.Embed(
-        title=template.get("title", f"{feed.platform.upper()} LIVE NOW"),
-        description=item["title"],
+        title=template.get("title", f"{item.get('channel_name', feed.source_ref)} is LIVE" if is_live else f"{feed.platform.upper()} UPDATE"),
+        description=stream_title,
         url=item.get("url"),
-        color=int(template.get("color", "0xF2A93B"), 16),
+        color=int(template.get("color", "0xDCA85D" if is_live else "0xF2A93B"), 16),
     )
-    embed.add_field(name="Source", value=feed.source_ref, inline=False)
-    if item.get("category"):
-        embed.add_field(name="Category", value=item["category"], inline=True)
-    if item.get("viewers") is not None:
-        embed.add_field(name="Viewers", value=f"{item['viewers']:,}", inline=True)
+    if item.get("channel_name"):
+        author = {"name": f"{item['channel_name']} • {feed.platform.title()}"}
+        if item.get("avatar_url"):
+            author["icon_url"] = item["avatar_url"]
+        embed.set_author(**author)
+    if is_live:
+        embed.add_field(name="Category", value=item.get("category") or "Just Chatting", inline=True)
+        embed.add_field(name="Viewers", value=f"{item.get('viewers', 0):,}", inline=True)
+        embed.add_field(name="Status", value="🔴 Live now", inline=True)
+    else:
+        embed.add_field(name="Source", value=feed.source_ref, inline=False)
     if item.get("thumbnail"):
         embed.set_image(url=item["thumbnail"])
-    if item.get("published"):
-        embed.set_footer(text=item["published"])
+    footer = "Beacon • Live notification" if is_live else f"Beacon • {feed.platform.upper()}"
+    embed.set_footer(text=footer)
+    if item.get("started_at"):
+        embed.timestamp = discord.utils.parse_time(item["started_at"])
     return embed
 
 
@@ -89,7 +101,16 @@ async def twitch_live(channel: str) -> dict | None:
             return None
         stream = streams[0]
         thumbnail = stream.get("thumbnail_url", "").replace("{width}", "1280").replace("{height}", "720")
-        return {"id": f"twitch:{stream['id']}", "title": f"{stream['user_name']} is live on Twitch", "url": f"https://twitch.tv/{channel.strip().lstrip('@')}", "category": stream.get("game_name") or "Just Chatting", "viewers": stream.get("viewer_count", 0), "thumbnail": thumbnail, "published": stream.get("started_at", "")}
+        return {
+            "id": f"twitch:{stream['id']}",
+            "title": stream.get("title") or f"{stream['user_name']} is live on Twitch",
+            "channel_name": stream.get("user_name") or channel.strip().lstrip("@"),
+            "url": f"https://twitch.tv/{stream.get('user_login') or channel.strip().lstrip('@')}",
+            "category": stream.get("game_name") or "Just Chatting",
+            "viewers": stream.get("viewer_count", 0),
+            "thumbnail": thumbnail,
+            "started_at": stream.get("started_at", ""),
+        }
 
     return await asyncio.to_thread(fetch)
 
@@ -119,9 +140,69 @@ async def kick_live(channel: str) -> dict | None:
         if not stream or stream.get("is_live") is False or not stream.get("stream_id", stream.get("id")):
             return None
         stream_id = stream.get("stream_id", stream.get("id"))
-        return {"id": f"kick:{stream_id}", "title": f"{channel_data.get('user_name', slug)} is live on Kick", "url": f"https://kick.com/{slug}", "category": (stream.get("category") or {}).get("name") if isinstance(stream.get("category"), dict) else stream.get("category", ""), "viewers": stream.get("viewer_count", 0), "thumbnail": stream.get("thumbnail_url") or stream.get("thumbnail", ""), "published": stream.get("started_at", "")}
+        return {
+            "id": f"kick:{stream_id}",
+            "title": stream.get("session_title") or stream.get("title") or f"{channel_data.get('user_name', slug)} is live on Kick",
+            "channel_name": channel_data.get("user_name") or slug,
+            "url": f"https://kick.com/{slug}",
+            "category": (stream.get("category") or {}).get("name") if isinstance(stream.get("category"), dict) else stream.get("category", ""),
+            "viewers": stream.get("viewer_count", 0),
+            "thumbnail": stream.get("thumbnail_url") or stream.get("thumbnail", ""),
+            "started_at": stream.get("started_at", ""),
+        }
 
     return await asyncio.to_thread(fetch)
+
+
+async def beacon_webhook(request: web.Request) -> web.Response:
+    feed_id = request.match_info["feed_id"]
+    secret = request.match_info["secret"]
+    async with Session() as session:
+        feed = await session.scalar(select(Feed).where(Feed.id == feed_id, Feed.webhook_secret == secret, Feed.enabled.is_(True)))
+        if not feed:
+            return web.json_response({"error": "Invalid webhook"}, status=404)
+
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "JSON payload required"}, status=400)
+
+        item = {
+            "id": str(payload.get("id") or payload.get("event_id") or payload.get("stream_id") or ""),
+            "title": payload.get("title") or payload.get("stream_title") or payload.get("message") or "Live stream started",
+            "channel_name": payload.get("channel_name") or payload.get("streamer") or payload.get("user_name") or feed.source_ref or "Streamer",
+            "url": payload.get("url") or payload.get("watch_url"),
+            "category": payload.get("category") or payload.get("game") or "Live stream",
+            "viewers": int(payload.get("viewers") or payload.get("viewer_count") or 0),
+            "thumbnail": payload.get("thumbnail") or payload.get("thumbnail_url") or payload.get("image"),
+            "started_at": payload.get("started_at") or payload.get("startedAt"),
+            "is_live": payload.get("is_live", True),
+        }
+        if not item["id"]:
+            item["id"] = f"webhook:{request.headers.get('X-Event-ID', '')}:{item['channel_name']}:{item['title']}"
+        if item["id"] == feed.last_posted_ref:
+            return web.json_response({"ok": True, "duplicate": True})
+
+        channel = bot.get_channel(int(feed.target_channel_id))
+        if not channel:
+            return web.json_response({"error": "Discord channel unavailable"}, status=503)
+        view = discord.ui.View(timeout=None)
+        if item.get("url"):
+            view.add_item(discord.ui.Button(label="Watch live", url=item["url"], emoji="🔴"))
+        await channel.send(embed=embed_for(feed, item), view=view if item.get("url") else None)
+        feed.last_posted_ref = item["id"]
+        await session.commit()
+    return web.json_response({"ok": True})
+
+
+async def start_webhook_server() -> None:
+    global webhook_runner
+    app = web.Application()
+    app.router.add_post("/webhooks/beacon/{feed_id}/{secret}", beacon_webhook)
+    webhook_runner = web.AppRunner(app)
+    await webhook_runner.setup()
+    site = web.TCPSite(webhook_runner, "0.0.0.0", int(os.getenv("BEACON_WEBHOOK_PORT", "8080")))
+    await site.start()
 
 
 @tasks.loop(seconds=120)
@@ -137,7 +218,11 @@ async def poll_feeds():
                     continue
                 channel = bot.get_channel(int(feed.target_channel_id))
                 if channel:
-                    await channel.send(embed=embed_for(feed, item), view=discord.ui.View().add_item(discord.ui.Button(label="Open source", url=item.get("url"))) if item.get("url") else None)
+                    view = None
+                    if item.get("url"):
+                        view = discord.ui.View(timeout=None)
+                        view.add_item(discord.ui.Button(label="Watch live" if feed.platform in {"twitch", "kick"} else "Open source", url=item["url"], emoji="🔴" if feed.platform in {"twitch", "kick"} else "🔗"))
+                    await channel.send(embed=embed_for(feed, item), view=view)
                     feed.last_posted_ref = item["id"]
             except Exception as error:
                 print(f"Beacon feed {feed.id} failed: {error}")
@@ -151,6 +236,8 @@ async def on_ready():
     if not poll_feeds.is_running():
         poll_feeds.change_interval(seconds=max(30, int(os.getenv("BEACON_POLL_SECONDS", "120"))))
         poll_feeds.start()
+    if webhook_runner is None:
+        await start_webhook_server()
     print(f"Beacon online as {bot.user}")
 
 
@@ -164,8 +251,8 @@ class FeedModal(discord.ui.Modal, title="Add Beacon feed"):
     platform = discord.ui.TextInput(label="Platform", placeholder="rss, twitch, or kick", default="rss", max_length=20)
 
     async def on_submit(self, interaction: discord.Interaction):
-        if self.platform.value.lower().strip() not in {"rss", "twitch", "kick"}:
-            await interaction.response.send_message(embed=discord.Embed(title="Beacon", description="Use rss, twitch, or kick as the platform.", color=0xD97968), ephemeral=True)
+        if self.platform.value.lower().strip() not in {"rss", "webhook"}:
+            await interaction.response.send_message(embed=discord.Embed(title="Beacon", description="Use rss or webhook as the platform. Add Twitch/Kick through your provider webhook.", color=0xD97968), ephemeral=True)
             return
         async with Session() as session:
             session.add(Feed(guild_id=str(interaction.guild_id), platform=self.platform.value.lower().strip(), source_ref=self.source_url.value.strip(), target_channel_id=str(interaction.channel_id)))
@@ -203,7 +290,7 @@ async def beacon_panel(interaction: discord.Interaction):
 @bot.tree.command(name="add_feed", description="Add an RSS/API feed to this server")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def add_feed(interaction: discord.Interaction, platform: str, source_url: str, channel: discord.TextChannel):
-    if platform.lower() not in {"rss", "youtube", "twitch", "kick", "github", "reddit", "webhook"}:
+    if platform.lower() not in {"rss", "youtube", "github", "reddit", "webhook"}:
         await interaction.response.send_message(embed=discord.Embed(title="Beacon", description="Unsupported platform.", color=0xE05252), ephemeral=True)
         return
     async with Session() as session:

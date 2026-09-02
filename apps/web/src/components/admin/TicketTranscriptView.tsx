@@ -10,20 +10,26 @@ interface Guild {
 }
 
 interface Ticket {
-  id: string;
-  guildId: string;
   number: number;
-  channelId: string;
   type: string | null;
-  openedBy: string;
-  claimedBy: string | null;
-  closedBy: string | null;
-  status: string;
-  transcriptContent: string | null;
-  createdAt: Date;
-  claimedAt: Date | null;
-  closedAt: Date | null;
-  guild: Guild;
+  openedBy?: string;
+  opened_by?: string;
+  claimedBy?: string | null;
+  claimed_by?: string | null;
+  closedBy?: string | null;
+  closed_by?: string | null;
+  status?: string;
+  transcriptContent?: string | null;
+  transcript_content?: string | null;
+  createdAt?: Date | string;
+  created_at?: Date | string;
+  claimedAt?: Date | string | null;
+  claimed_at?: Date | string | null;
+  closedAt?: Date | string | null;
+  closed_at?: Date | string | null;
+  guildName?: string;
+  guildIconUrl?: string | null;
+  guild?: Guild;
 }
 
 interface Props {
@@ -33,9 +39,22 @@ interface Props {
 
 export function TicketTranscriptView({ ticket, adminPath }: Props) {
   const backHref = adminPath ? `/${adminPath}` : "/dashboard";
-  const transcriptLines = ticket.transcriptContent
-    ? ticket.transcriptContent.split("\n").filter((line) => line.trim())
+  const transcriptContent = ticket.transcriptContent ?? ticket.transcript_content;
+  const openedBy = ticket.openedBy ?? ticket.opened_by;
+  const claimedBy = ticket.claimedBy ?? ticket.claimed_by;
+  const closedBy = ticket.closedBy ?? ticket.closed_by;
+  const createdAt = ticket.createdAt ?? ticket.created_at;
+  const claimedAt = ticket.claimedAt ?? ticket.claimed_at;
+  const closedAt = ticket.closedAt ?? ticket.closed_at;
+  const guildName = ticket.guild?.name ?? ticket.guildName;
+  const transcriptLines = transcriptContent
+    ? transcriptContent.split("\n").filter((line) => line.trim())
     : [];
+  const formatDate = (value: Date | string | null | undefined) => {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleString();
+  };
 
   return (
     <div className="space-y-6">
@@ -53,15 +72,15 @@ export function TicketTranscriptView({ ticket, adminPath }: Props) {
 
       <div className="card-bg rounded-xl p-6 space-y-4">
         <div className="space-y-2 text-sm">
-          <p><span className="text-text-dim font-mono">Guild:</span> {ticket.guild.name}</p>
+          <p><span className="text-text-dim font-mono">Guild:</span> {guildName || "N/A"}</p>
           <p><span className="text-text-dim font-mono">Type:</span> {ticket.type || "N/A"}</p>
           <p><span className="text-text-dim font-mono">Status:</span> {ticket.status}</p>
-          <p><span className="text-text-dim font-mono">Opened by:</span> {ticket.openedBy}</p>
-          <p><span className="text-text-dim font-mono">Claimed by:</span> {ticket.claimedBy || "N/A"}</p>
-          <p><span className="text-text-dim font-mono">Closed by:</span> {ticket.closedBy || "N/A"}</p>
-          <p><span className="text-text-dim font-mono">Created:</span> {new Date(ticket.createdAt).toLocaleString()}</p>
-          {ticket.claimedAt && <p><span className="text-text-dim font-mono">Claimed at:</span> {new Date(ticket.claimedAt).toLocaleString()}</p>}
-          {ticket.closedAt && <p><span className="text-text-dim font-mono">Closed at:</span> {new Date(ticket.closedAt).toLocaleString()}</p>}
+          <p><span className="text-text-dim font-mono">Opened by:</span> {openedBy || "N/A"}</p>
+          <p><span className="text-text-dim font-mono">Claimed by:</span> {claimedBy || "N/A"}</p>
+          <p><span className="text-text-dim font-mono">Closed by:</span> {closedBy || "N/A"}</p>
+          <p><span className="text-text-dim font-mono">Created:</span> {formatDate(createdAt)}</p>
+          {claimedAt && <p><span className="text-text-dim font-mono">Claimed at:</span> {formatDate(claimedAt)}</p>}
+          {closedAt && <p><span className="text-text-dim font-mono">Closed at:</span> {formatDate(closedAt)}</p>}
         </div>
       </div>
 

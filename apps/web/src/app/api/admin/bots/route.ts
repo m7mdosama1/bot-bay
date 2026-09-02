@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isAdminAllowlisted } from "@/lib/adminAuth";
+import { verifyAdminSession } from "@/lib/adminAuth";
 import {
   toggleBotGlobalStatus,
   updateBotDetails,
@@ -11,7 +11,11 @@ import {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user || !isAdminAllowlisted(session.user.id)) {
+  const adminSession = await verifyAdminSession(
+    session?.user?.id,
+    session?.accessToken as string
+  );
+  if (!adminSession.authenticated) {
     return NextResponse.json({ error: "Unauthorized Admin" }, { status: 403 });
   }
 
@@ -40,8 +44,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Admin bot management error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Admin bot management failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -129,12 +129,14 @@ export function verifyTotpAndCreateSession(userId: string, token: string): { suc
 }
 
 export async function getAdminStats() {
-  const [totalUsers, totalGuilds, totalTickets, openTickets, totalGiveaways] = await Promise.all([
+  const [totalUsers, totalGuilds, totalTickets, openTickets, totalGiveaways, bannedUsers, blockedBots] = await Promise.all([
     db.query("SELECT COUNT(*) FROM users"),
     db.query("SELECT COUNT(*) FROM guilds"),
     db.query("SELECT COUNT(*) FROM tickets"),
     db.query("SELECT COUNT(*) FROM tickets WHERE status = 'open'"),
     db.query("SELECT COUNT(*) FROM giveaways"),
+    db.query("SELECT COUNT(*) FROM users WHERE is_banned = true"),
+    db.query("SELECT COUNT(*) FROM guild_bots WHERE is_admin_blocked = true"),
   ]);
 
   const recentTicketsResult = await db.query(
@@ -147,6 +149,8 @@ export async function getAdminStats() {
     totalTickets: parseInt(totalTickets.rows[0].count, 10),
     openTickets: parseInt(openTickets.rows[0].count, 10),
     totalGiveaways: parseInt(totalGiveaways.rows[0].count, 10),
+    bannedUsers: parseInt(bannedUsers.rows[0].count, 10),
+    blockedBots: parseInt(blockedBots.rows[0].count, 10),
     recentTickets: recentTicketsResult.rows,
   };
 }
