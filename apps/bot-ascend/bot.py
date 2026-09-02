@@ -35,6 +35,13 @@ async def user_record(session, guild_id: str, user_id: str) -> UserXP:
     if not row:
         row = UserXP(guild_id=guild_id, user_id=user_id)
         session.add(row)
+    else:
+        row.xp = row.xp or 0
+        row.level = row.level or 0
+        row.prestige = row.prestige or 0
+        row.message_count = row.message_count or 0
+        row.voice_minutes = row.voice_minutes or 0
+        row.streak_days = row.streak_days or 0
     return row
 
 
@@ -59,7 +66,7 @@ class AscendPanel(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="My rank", style=discord.ButtonStyle.success, emoji="★", custom_id="ascend_rank")
+    @discord.ui.button(label="My rank", style=discord.ButtonStyle.success, emoji="⭐", custom_id="ascend_rank")
     async def my_rank(self, interaction: discord.Interaction, button: discord.ui.Button):
         async with Session() as session:
             row = await user_record(session, str(interaction.guild_id), str(interaction.user.id))
@@ -68,7 +75,7 @@ class AscendPanel(discord.ui.View):
         embed.add_field(name="Streak", value=f"{row.streak_days} days")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @discord.ui.button(label="Leaderboard", style=discord.ButtonStyle.secondary, emoji="♛", custom_id="ascend_leaderboard")
+    @discord.ui.button(label="Leaderboard", style=discord.ButtonStyle.secondary, emoji="🏆", custom_id="ascend_leaderboard")
     async def leaderboard_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         async with Session() as session:
             rows = (await session.scalars(select(UserXP).where(UserXP.guild_id == str(interaction.guild_id)).order_by(UserXP.xp.desc()).limit(10))).all()
@@ -96,7 +103,7 @@ async def on_message(message: discord.Message):
         row = await user_record(session, str(message.guild.id), str(message.author.id))
         if row.last_xp_at and (now - row.last_xp_at).total_seconds() < config.xp_cooldown_seconds:
             return
-        row.xp += random.randint(config.xp_per_message_min, config.xp_per_message_max)
+        row.xp += random.randint(config.xp_per_message_min or XP_PER_MESSAGE_MIN, config.xp_per_message_max or XP_PER_MESSAGE_MAX)
         row.message_count += 1
         row.last_xp_at = now
         today = datetime.now(timezone.utc).date().isoformat()
@@ -118,7 +125,7 @@ async def rank(interaction: discord.Interaction, member: discord.Member | None =
     member = member or interaction.user
     async with Session() as session:
         row = await user_record(session, str(interaction.guild_id), str(member.id))
-        higher = await session.scalar(select(UserXP).where(UserXP.guild_id == str(interaction.guild_id), UserXP.xp > row.xp))
+        await session.commit()
     embed = discord.Embed(title="ASCEND", description=f"{member.mention}\nLevel **{row.level}** | Prestige **{row.prestige}**", color=0xF2A93B)
     embed.add_field(name="XP", value=f"{row.xp:,} / {xp_required(row.level + 1):,}")
     embed.add_field(name="Streak", value=f"{row.streak_days} days")

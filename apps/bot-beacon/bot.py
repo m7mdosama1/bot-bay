@@ -177,14 +177,14 @@ class BeaconPanel(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Add feed", style=discord.ButtonStyle.success, emoji="＋", custom_id="beacon_add_feed")
+    @discord.ui.button(label="Add feed", style=discord.ButtonStyle.success, emoji="➕", custom_id="beacon_add_feed")
     async def add(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.manage_guild:
             await interaction.response.send_message(embed=discord.Embed(title="Beacon", description="Manage Server permission required.", color=0xD97968), ephemeral=True)
             return
         await interaction.response.send_modal(FeedModal())
 
-    @discord.ui.button(label="My feeds", style=discord.ButtonStyle.secondary, emoji="≡", custom_id="beacon_list_feeds")
+    @discord.ui.button(label="My feeds", style=discord.ButtonStyle.secondary, emoji="📋", custom_id="beacon_list_feeds")
     async def list_feeds(self, interaction: discord.Interaction, button: discord.ui.Button):
         async with Session() as session:
             rows = (await session.scalars(select(Feed).where(Feed.guild_id == str(interaction.guild_id), Feed.enabled.is_(True)))).all()

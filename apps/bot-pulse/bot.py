@@ -28,6 +28,11 @@ async def daily(session, guild_id: str) -> DailyStat:
     if not row:
         row = DailyStat(guild_id=guild_id, date=today)
         session.add(row)
+    else:
+        row.new_members = row.new_members or 0
+        row.messages_count = row.messages_count or 0
+        row.active_users = row.active_users or 0
+        row.voice_minutes = row.voice_minutes or 0
     return row
 
 
@@ -65,18 +70,18 @@ class PulsePanel(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Overview", style=discord.ButtonStyle.success, emoji="▦", custom_id="pulse_overview")
+    @discord.ui.button(label="Overview", style=discord.ButtonStyle.success, emoji="📊", custom_id="pulse_overview")
     async def overview(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(embed=await overview_embed(interaction.guild))
 
-    @discord.ui.button(label="Top members", style=discord.ButtonStyle.secondary, emoji="♛", custom_id="pulse_members")
+    @discord.ui.button(label="Top members", style=discord.ButtonStyle.secondary, emoji="🏆", custom_id="pulse_members")
     async def members(self, interaction: discord.Interaction, button: discord.ui.Button):
         async with Session() as session:
             rows = (await session.scalars(select(MemberStat).where(MemberStat.guild_id == str(interaction.guild_id)).order_by(MemberStat.message_count.desc()).limit(10))).all()
         text = "\n".join(f"**{index}.** <@{row.user_id}> — `{row.message_count:,} messages`" for index, row in enumerate(rows, 1)) or "No activity recorded yet."
         await interaction.response.edit_message(embed=discord.Embed(title="Pulse | Most active members", description=text, color=0x58C8A5))
 
-    @discord.ui.button(label="Refresh", style=discord.ButtonStyle.primary, emoji="↻", custom_id="pulse_refresh")
+    @discord.ui.button(label="Refresh", style=discord.ButtonStyle.primary, emoji="🔁", custom_id="pulse_refresh")
     async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(embed=await overview_embed(interaction.guild))
 
@@ -124,7 +129,6 @@ async def on_member_join(member: discord.Member):
 async def pulse(interaction: discord.Interaction):
     async with Session() as session:
         stat = await daily(session, str(interaction.guild_id))
-        active = await session.scalar(select(MemberStat).where(MemberStat.guild_id == str(interaction.guild_id)))
         rows = (await session.scalars(select(MemberStat).where(MemberStat.guild_id == str(interaction.guild_id)))).all()
     active_count = sum(1 for row in rows if row.last_active_at and (datetime.utcnow() - row.last_active_at).days < 1)
     embed = discord.Embed(title="Pulse | Server overview", color=0x42D392)
