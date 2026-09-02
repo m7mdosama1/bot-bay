@@ -18,7 +18,8 @@ from packages.db.shared_models import RouletteConfig
 from shared.db.models import RouletteBalance, RouletteSession
 from shared.db.session import Session, init_db
 
-WEB_URL = os.getenv("PUBLIC_WEB_URL", "http://localhost:3000").rstrip("/")
+configured_web_url = os.getenv("PUBLIC_WEB_URL", "").strip().rstrip("/")
+WEB_URL = configured_web_url if configured_web_url.lower() not in {"", "undefined", "null", "none"} else "https://bot-bay-kappa.vercel.app"
 intents = discord.Intents.default()
 intents.guilds = True
 bot = commands.Bot(command_prefix="!", intents=intents)
