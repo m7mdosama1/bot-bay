@@ -19,7 +19,6 @@ class Feed(Base):
     source_ref: Mapped[str] = mapped_column(String)
     target_channel_id: Mapped[str] = mapped_column(String)
     embed_template: Mapped[str] = mapped_column(Text, default="{}")
-    webhook_secret: Mapped[str | None] = mapped_column(String, nullable=True)
     last_posted_ref: Mapped[str | None] = mapped_column(String, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

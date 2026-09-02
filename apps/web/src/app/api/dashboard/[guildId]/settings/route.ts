@@ -58,10 +58,10 @@ export async function POST(
         });
         break;
       case "beacon_add_feed":
-        if (!["rss", "webhook"].includes(String(data.platform).toLowerCase())) {
-          return NextResponse.json({ error: "Beacon supports RSS and generic webhooks" }, { status: 400 });
+        if (!["rss", "twitch", "kick"].includes(String(data.platform).toLowerCase())) {
+          return NextResponse.json({ error: "Beacon supports RSS, Twitch, and Kick" }, { status: 400 });
         }
-        if ((String(data.platform).toLowerCase() !== "webhook" && !String(data.sourceRef || "").trim()) || !String(data.targetChannelId || "").trim()) {
+        if (!String(data.sourceRef || "").trim() || !String(data.targetChannelId || "").trim()) {
           return NextResponse.json({ error: "Source and target channel are required" }, { status: 400 });
         }
         result = await createBeaconFeed(guildId, {

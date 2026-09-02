@@ -1,5 +1,4 @@
 import { Pool } from "pg";
-import { randomBytes } from "crypto";
 
 let pool: Pool | null = null;
 
@@ -494,12 +493,8 @@ export async function upsertAscendConfig(guildId: string, data: { enabled: boole
 }
 
 export async function getBeaconFeeds(guildId: string) {
-  const result = await db.query("SELECT id, platform, source_ref as \"sourceRef\", target_channel_id as \"targetChannelId\", enabled, webhook_secret as \"webhookSecret\" FROM feeds WHERE guild_id = $1 ORDER BY created_at DESC", [guildId]);
-  return result.rows.map((feed) => ({
-    ...feed,
-    ...(feed.webhookSecret ? { webhookUrl: `${process.env.BEACON_PUBLIC_URL || ""}/webhooks/beacon/${feed.id}/${feed.webhookSecret}` } : {}),
-    webhookSecret: undefined,
-  }));
+  const result = await db.query("SELECT id, platform, source_ref as \"sourceRef\", target_channel_id as \"targetChannelId\", enabled FROM feeds WHERE guild_id = $1 ORDER BY created_at DESC", [guildId]);
+  return result.rows;
 }
 
 export async function saveKickConnection(data: {
@@ -542,16 +537,11 @@ export async function deleteKickConnection(guildId: string, discordUserId: strin
 }
 
 export async function createBeaconFeed(guildId: string, data: { platform: string; sourceRef: string; targetChannelId: string }) {
-  const webhookSecret = data.platform === "webhook" ? randomBytes(32).toString("hex") : null;
   const result = await db.query(
-    "INSERT INTO feeds (id, guild_id, platform, source_ref, target_channel_id, embed_template, webhook_secret, enabled, created_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, '{}', $5, true, NOW()) RETURNING id, platform, source_ref as \"sourceRef\", target_channel_id as \"targetChannelId\", enabled, webhook_secret as \"webhookSecret\"",
-    [guildId, data.platform, data.sourceRef, data.targetChannelId, webhookSecret]
+    "INSERT INTO feeds (id, guild_id, platform, source_ref, target_channel_id, embed_template, enabled, created_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, '{}', true, NOW()) RETURNING id, platform, source_ref as \"sourceRef\", target_channel_id as \"targetChannelId\", enabled",
+    [guildId, data.platform, data.sourceRef, data.targetChannelId]
   );
-  const feed = result.rows[0];
-  if (webhookSecret) {
-    feed.webhookUrl = `${process.env.BEACON_PUBLIC_URL || ""}/webhooks/beacon/${feed.id}/${webhookSecret}`;
-  }
-  return feed;
+  return result.rows[0];
 }
 
 export async function setBeaconFeedEnabled(guildId: string, feedId: string, enabled: boolean) {

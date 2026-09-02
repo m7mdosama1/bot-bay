@@ -115,8 +115,6 @@ In the Vercel Dashboard → Project → Settings → Environment Variables:
 | `BEACON_POLL_SECONDS` | Beacon feed polling interval |
 | `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` | Twitch Helix app credentials |
 | `KICK_CLIENT_ID` / `KICK_CLIENT_SECRET` | Kick API app credentials |
-| `BEACON_PUBLIC_URL` | Public base URL of the Beacon bot service, used to generate per-feed webhook URLs |
-| `BEACON_WEBHOOK_PORT` | Port for Beacon webhook ingestion, normally `8080` |
 | `XP_COOLDOWN_SECONDS` | Ascend message XP cooldown |
 | `XP_PER_MESSAGE_MIN` / `XP_PER_MESSAGE_MAX` | Ascend fallback XP range; server owners override it in the dashboard |
 
