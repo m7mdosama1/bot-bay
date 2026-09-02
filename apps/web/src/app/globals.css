@@ -361,6 +361,19 @@
   .balance strong { display: block; margin-top: .35rem; font: 700 2rem var(--font-display); }
   .balance span { color: var(--amber-signal); font: .7rem var(--font-mono); }
   .roulette-table { max-width: 72rem; margin: auto; padding: clamp(1.2rem, 4vw, 3rem); border: 1px solid var(--line); background: linear-gradient(145deg, rgba(24, 33, 36, .94), rgba(13, 17, 20, .95)); box-shadow: 0 2rem 6rem rgba(0,0,0,.25); }
+  .roulette-wheel-stage { position: relative; display: grid; place-items: center; min-height: 23rem; overflow: hidden; background: radial-gradient(circle, rgba(220,168,93,.08), transparent 48%), #0a0e10; border: 1px solid var(--line); }
+  .roulette-wheel { position: relative; width: 19rem; height: 19rem; border: .75rem solid #a8793e; border-radius: 50%; transition: transform 3.6s cubic-bezier(.12,.74,.18,1); box-shadow: 0 0 0 .55rem #3c3024, 0 1.5rem 3rem rgba(0,0,0,.45); }
+  .roulette-wheel-face { position: absolute; inset: .7rem; border-radius: 50%; background: repeating-conic-gradient(from -4.86deg, #171d1e 0deg 4.86deg, #9a403c 4.86deg 9.72deg); border: .22rem solid #d2a359; }
+  .roulette-number { position: absolute; z-index: 2; left: calc(50% - .65rem); top: calc(50% - .65rem); width: 1.3rem; height: 1.3rem; display: grid; place-items: center; color: #f5ead5; font: 600 .62rem var(--font-mono); }
+  .roulette-number.red { color: #ffb0a2; } .roulette-number.black { color: #f2f0e9; } .roulette-number.green { color: #72e0bb; }
+  .roulette-hub { position: absolute; z-index: 4; inset: 38%; display: grid; place-items: center; border: .45rem solid #c9964d; border-radius: 50%; background: #111819; box-shadow: inset 0 0 0 .25rem #443622; }
+  .roulette-hub span { color: var(--amber-signal); font: 700 1.7rem var(--font-display); }
+  .roulette-pointer { position: absolute; z-index: 8; top: .65rem; width: 0; height: 0; border-left: .8rem solid transparent; border-right: .8rem solid transparent; border-top: 1.8rem solid var(--amber-signal); filter: drop-shadow(0 .2rem .25rem rgba(0,0,0,.5)); }
+  .roulette-ball { position: absolute; z-index: 7; width: .8rem; height: .8rem; border: .12rem solid #fff4d9; border-radius: 50%; background: #fff; box-shadow: 0 0 .8rem rgba(255,255,255,.8); transform: rotate(0deg) translateY(-8.2rem); transition: transform 3.6s cubic-bezier(.12,.74,.18,1); }
+  .is-spinning .roulette-ball { animation: roulette-ball 3.6s cubic-bezier(.12,.74,.18,1) both; }
+  @keyframes roulette-ball { from { transform: rotate(0deg) translateY(-8.2rem); } to { transform: rotate(-2160deg) translateY(-8.2rem); } }
+  .roulette-result-line { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0 .35rem; color: var(--text-dim); font: .68rem var(--font-mono); }
+  .roulette-result-line strong { color: var(--amber-signal); font-size: .85rem; }
   .roulette-result { display: grid; place-items: center; min-height: 13rem; border: 1px solid var(--line); background: radial-gradient(circle, rgba(220,168,93,.15), transparent 55%); }
   .roulette-result span { font: 800 6rem/.8 var(--font-display); }
   .roulette-result small { margin-top: 1rem; font: .65rem var(--font-mono); letter-spacing: .2em; color: var(--text-dim); }
@@ -375,12 +388,15 @@
   .spin-button { flex: 1; padding: 1rem; color: var(--bg-void); background: var(--amber-signal); border: 0; cursor: pointer; font: 700 .8rem var(--font-mono); letter-spacing: .08em; }
   .spin-button:hover { background: var(--amber-signal-hover); }
   .spin-button span { margin-left: .5rem; font-size: 1.1rem; }
+  .bonus-button { padding: 1rem; color: var(--teal-accent); border: 1px solid rgba(88,200,165,.35); background: rgba(88,200,165,.08); cursor: pointer; font: 700 .7rem var(--font-mono); white-space: nowrap; }
+  .bonus-button:hover { background: rgba(88,200,165,.16); }
+  .bonus-button:disabled, .spin-button:disabled { cursor: wait; opacity: .55; }
   .result-message { display: grid; gap: .3rem; margin-top: 1rem; padding: 1rem; border-left: 2px solid; font: 600 .9rem var(--font-mono); }
   .result-message small { color: var(--text-dim); font-weight: 400; } .result-message.won { color: var(--teal-accent); border-color: var(--teal-accent); } .result-message.lost { color: var(--rose-gold); border-color: var(--rose-gold); }
   .roulette-inline-error, .roulette-error { color: var(--rose-gold); } .roulette-loading, .roulette-error { display: grid; min-height: 80vh; place-items: center; text-align: center; }
   .roulette-error span { color: var(--rose-gold); font: .7rem var(--font-mono); letter-spacing: .16em; } .roulette-error h1 { font: 700 2rem var(--font-display); }
   .roulette-footnote { max-width: 72rem; margin: 1.2rem auto; font: .65rem var(--font-mono); }
-  @media (max-width: 640px) { .roulette-header { display: grid; margin-top: 5rem; } .balance { width: 100%; } .prediction-grid { grid-template-columns: repeat(2, 1fr); } .spin-controls { display: grid; } .spin-controls input { width: 100%; } }
+  @media (max-width: 640px) { .roulette-header { display: grid; margin-top: 5rem; } .balance { width: 100%; } .prediction-grid { grid-template-columns: repeat(2, 1fr); } .spin-controls { display: grid; } .spin-controls input { width: 100%; } .roulette-wheel-stage { min-height: 20rem; } .roulette-wheel { width: 16rem; height: 16rem; } .roulette-ball { transform: rotate(0deg) translateY(-6.8rem); } .roulette-result-line { align-items: flex-start; flex-direction: column; } }
   @media (max-width: 768px) { .hero-console-body { grid-template-columns: 1fr; min-height: 22rem; } .hero-orbit { width: 6rem; height: 6rem; } }
 
   .stagger-1 { animation-delay: 0.1s; }

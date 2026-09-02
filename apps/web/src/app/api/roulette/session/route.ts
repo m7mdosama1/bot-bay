@@ -31,7 +31,27 @@ export async function POST(request: NextRequest) {
   if (!token) return NextResponse.json({ error: "Session token is required" }, { status: 400 });
   const active = await sessionFor(token);
   if (!active) return NextResponse.json({ error: "This private table has expired" }, { status: 401 });
-  const { prediction, betAmount } = await request.json();
+  const body = await request.json();
+  if (body.action === "daily_bonus") {
+    const client = await db.getClient();
+    try {
+      await client.query("BEGIN");
+      const locked = await client.query("SELECT balance, daily_claimed_at FROM roulette_balances WHERE guild_id = $1 AND user_id = $2 FOR UPDATE", [active.guild_id, active.user_id]);
+      if (!locked.rows[0]) throw new Error("Balance record not found");
+      if (locked.rows[0].daily_claimed_at && new Date(locked.rows[0].daily_claimed_at).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)) throw new Error("Daily reward already claimed");
+      const reward = crypto.randomInt(100, 301);
+      const newBalance = locked.rows[0].balance + reward;
+      await client.query("UPDATE roulette_balances SET balance = $1, daily_claimed_at = NOW(), updated_at = NOW() WHERE guild_id = $2 AND user_id = $3", [newBalance, active.guild_id, active.user_id]);
+      await client.query("COMMIT");
+      return NextResponse.json({ reward, balance: newBalance, currencyName: active.currency_name || "Coins" });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Reward failed" }, { status: 409 });
+    } finally {
+      client.release();
+    }
+  }
+  const { prediction, betAmount } = body;
   const bet = Number(betAmount);
   if (!active.enabled) return NextResponse.json({ error: "Roulette is disabled" }, { status: 409 });
   if (!Number.isInteger(bet) || bet < active.min_bet || bet > active.max_bet || bet > active.balance) return NextResponse.json({ error: "Invalid bet or insufficient balance" }, { status: 400 });
