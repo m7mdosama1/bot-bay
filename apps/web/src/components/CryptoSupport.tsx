@@ -110,11 +110,11 @@ export function CryptoSupport() {
           <div className="mt-2 text-xs text-text-dim text-center">
             Network fees only — no platform fees
           </div>
-        </div>
-        <div className="mt-2 pt-2 border-t border-glass-border text-center">
-          <p className="text-xs text-text-dim">
-          Special thanks for a generous $1071 contribution 💚
-        </p>
+          <div className="mt-2 pt-2 border-t border-glass-border text-center">
+            <p className="text-xs text-text-dim">
+              Special thanks for a generous $1071 contribution 💚
+            </p>
+          </div>
         </div>
       )}
       <button
