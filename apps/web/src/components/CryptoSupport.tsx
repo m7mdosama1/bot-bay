@@ -112,7 +112,9 @@ export function CryptoSupport() {
           </div>
           <div className="mt-2 pt-2 border-t border-glass-border text-center">
             <p className="text-xs text-text-dim">
-              Special thanks for a generous $1071 contribution 💚
+              Shoutout to{" "}
+              <span className="font-mono text-amber-signal">0x83ebEf9...f5f2a4B8F2</span>{" "}
+              — your support means the world to us 💚
             </p>
           </div>
         </div>
