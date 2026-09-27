@@ -4,13 +4,10 @@ import { useMemo } from "react";
 const navigation = {
   product: [
     { name: "Browse Bots", href: "/bots" },
-    { name: "Pricing", href: "/#pricing" },
-    { name: "Documentation", href: "https://github.com/kilo-org/bot-bay#readme" },
   ],
   company: [
     { name: "About", href: "/about" },
-    { name: "Blog", href: "/blog" },
-    { name: "Careers", href: "/careers" },
+
   ],
   legal: [
     { name: "Privacy Policy", href: "/privacy-policy" },
